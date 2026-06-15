@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0b1020">
+  <title>GenericBlockGame</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell" aria-label="Block puzzle game">
+    <header class="topbar">
+      <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"></path>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
+        </svg>
+      </button>
+      <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 4v6h6"></path>
+          <path d="M5.5 15.5A8 8 0 1 0 6 7.5L4 10"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="score-panel" aria-label="Score">
+      <div>
+        <span class="score-label">Score</span>
+        <span id="timerDisplay" class="timer-display" hidden>3:00</span>
+        <strong id="score" class="score">0</strong>
+      </div>
+      <div class="best-score">
+        <span id="bestScoreLabel" class="score-label">Best score</span>
+        <strong id="bestScore">0</strong>
+      </div>
+    </section>
+
+    <section class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="9 by 9 game board"></div>
+      <div id="scoreBurst" class="score-burst" aria-hidden="true"></div>
+    </section>
+
+    <section class="tray-section" aria-label="Piece tray">
+      <div id="tray" class="tray"></div>
+      <button id="undoButton" class="undo-button" type="button" disabled>
+        <span aria-hidden="true">↶</span> Undo
+      </button>
+    </section>
+  </main>
+
+  <div id="dragLayer" class="drag-layer" aria-hidden="true"></div>
+
+  <section id="settingsPanel" class="settings-panel" aria-hidden="true" aria-labelledby="settingsTitle">
+    <div class="settings-card">
+      <header class="settings-header">
+        <h2 id="settingsTitle">Settings</h2>
+        <button id="settingsCloseButton" class="settings-close" type="button" aria-label="Close settings">×</button>
+      </header>
+
+      <div class="settings-content">
+        <div class="settings-content-inner">
+        <section class="settings-section reset-settings-section">
+          <h3>Reset</h3>
+          <div class="reset-actions">
+            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
+            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
+          </div>
+          <div id="resetConfirmation" class="reset-confirmation" hidden>
+            <p id="resetConfirmationText"></p>
+            <div>
+              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
+              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Accessibility</h3>
+          <div class="drag-settings accessibility-settings">
+            <label>
+              <span>Pickup offset</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="dragInitialOffsetSetting" data-step="-5" aria-label="Decrease initial drag offset">−</button>
+                <input id="dragInitialOffsetSetting" type="number" min="0" max="300" step="5">
+                <button type="button" data-step-target="dragInitialOffsetSetting" data-step="5" aria-label="Increase initial drag offset">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Dragging offset</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="dragMovingOffsetSetting" data-step="-5" aria-label="Decrease moving drag offset">−</button>
+                <input id="dragMovingOffsetSetting" type="number" min="0" max="400" step="5">
+                <button type="button" data-step-target="dragMovingOffsetSetting" data-step="5" aria-label="Increase moving drag offset">+</button>
+              </span>
+            </label>
+            <label class="hue-setting">
+              <span>Piece hue</span>
+              <span class="hue-control">
+                <input id="pieceHueSetting" type="range" min="0" max="359" step="1" aria-label="Piece color hue">
+                <output id="pieceHueValue" for="pieceHueSetting">212°</output>
+              </span>
+            </label>
+            <label>
+              <span>Snap safety margin</span>
+              <span class="number-stepper multiplier-stepper">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
+                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h3 class="general-heading">General</h3>
+          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
+            <span class="segmented-indicator" aria-hidden="true"></span>
+            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
+            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+          </div>
+          <label class="setting-toggle">
+            <span>Show undo button</span>
+            <input id="undoSetting" type="checkbox">
+          </label>
+          <div class="drag-settings">
+            <label id="timeTrialDurationRow">
+              <span>Time trial limit</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
+                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Tray size</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
+                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
+                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
+              </span>
+            </label>
+            <div class="board-size-setting">
+              <span>Board size</span>
+              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Board size">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-size="6" role="radio">6×6</button>
+                <button type="button" data-size="9" role="radio">9×9</button>
+                <button type="button" data-size="12" role="radio">12×12</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-section-heading">
+            <div>
+              <h3>Pieces</h3>
+              <p>Enable pieces and change how often they appear.</p>
+            </div>
+          </div>
+          <div id="pieceSettingsList" class="piece-settings-list"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Create a piece</h3>
+          <p>Select any arrangement of squares in the 5×5 editor.</p>
+          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
+          <div class="designer-fields">
+            <label>
+              Name
+              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
+            </label>
+            <label>
+              Frequency
+              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
+            </label>
+          </div>
+          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
+          <div class="designer-actions">
+            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
+            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
+          </div>
+        </section>
+
+        <footer class="settings-footer">
+          Version 1.0 | Create by Goodgu | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
+        </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Enter fullscreen" title="Enter fullscreen">
+    <svg class="fullscreen-enter" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+    </svg>
+    <svg class="fullscreen-exit" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"></path>
+    </svg>
+  </button>
+
+  <div id="modal" class="modal is-open" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <h1 id="modalTitle">GenericBlockGame</h1>
+      <p id="modalText">Fit the pieces, clear rows, columns, and 3×3 squares, and keep your streak alive.</p>
+      <strong id="modalScore" class="modal-score" hidden>0</strong>
+      <div class="modal-actions">
+        <button id="modalUndoButton" class="modal-undo-button" type="button" hidden>↶ Undo</button>
+        <button id="modalButton" class="primary-button" type="button">Start game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ordered classic scripts also work when this file is opened with file://. -->
+  <script src="config.js"></script>
+  <script src="preferences.js"></script>
+  <script src="shapes.js"></script>
+  <script src="board.js"></script>
+  <script src="storage.js"></script>
+  <script src="ui.js"></script>
+  <script src="settings.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
