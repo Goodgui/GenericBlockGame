@@ -2,6 +2,8 @@
 
 GenericBlockGame is my implementation of a generic block puzzle game that runs in the browser.
 
+[Play now in browser](https://goodgui.github.io/GenericBlockGame/)
+
 ## How to Play
 
 1. Drag a piece from the tray onto the board.
@@ -16,4 +18,4 @@ Use **Undo** to reverse moves made during the current tray. Open **Settings** to
 
 Your current game, settings, and top score are saved in the browser memory.
 
-Enable **Time Trial** in Settings to play against a configurable countdown. The timer starts when the first piece is placed.
+Enable **Time Trial** in Settings to play against a configurable countdown. The timer starts when the first piece is placed
