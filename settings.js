@@ -17,6 +17,7 @@ const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetti
 const timeTrialDurationRow = document.querySelector("#timeTrialDurationRow");
 const dragInitialOffsetSetting = document.querySelector("#dragInitialOffsetSetting");
 const dragMovingOffsetSetting = document.querySelector("#dragMovingOffsetSetting");
+const dragHorizontalOffsetSetting = document.querySelector("#dragHorizontalOffsetSetting");
 const pieceHueSetting = document.querySelector("#pieceHueSetting");
 const pieceHueValue = document.querySelector("#pieceHueValue");
 const snapOverlapSetting = document.querySelector("#snapOverlapSetting");
@@ -239,6 +240,7 @@ function openSettings() {
   timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
   dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
   dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
+  dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
   pieceHueSetting.value = String(preferences.pieceHue);
   pieceHueValue.textContent = `${preferences.pieceHue}°`;
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
@@ -305,6 +307,7 @@ function confirmReset() {
     timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
     dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
     dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
+    dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
     pieceHueSetting.value = String(preferences.pieceHue);
     pieceHueValue.textContent = `${preferences.pieceHue}°`;
     snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
@@ -345,6 +348,11 @@ function initSettings(options) {
   dragMovingOffsetSetting.addEventListener("change", () => {
     preferences.dragMovingOffset = clampInteger(dragMovingOffsetSetting.value, 0, 400);
     dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
+    saveAccessibilityAndNotify();
+  });
+  dragHorizontalOffsetSetting.addEventListener("change", () => {
+    preferences.dragHorizontalOffset = clampInteger(dragHorizontalOffsetSetting.value, 0, 400);
+    dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
     saveAccessibilityAndNotify();
   });
   pieceHueSetting.addEventListener("input", () => {
