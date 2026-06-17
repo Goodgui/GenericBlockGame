@@ -41,8 +41,14 @@ function buildBoard(size) {
       if ((col + 1) % 3 === 0 && col < size - 1) {
         cell.classList.add("block-right");
       }
+      if (col % 3 === 0 && col > 0) {
+        cell.classList.add("block-left");
+      }
       if ((row + 1) % 3 === 0 && row < size - 1) {
         cell.classList.add("block-bottom");
+      }
+      if (row % 3 === 0 && row > 0) {
+        cell.classList.add("block-top");
       }
       if ((Math.floor(row / 3) + Math.floor(col / 3)) % 2 === 0) {
         cell.classList.add("box-tint");
@@ -66,6 +72,8 @@ function makePiece(shape, cellSize) {
   for (const [x, y] of shape.cells) {
     const cell = document.createElement("i");
     cell.className = "piece-cell";
+    cell.dataset.shapeX = x;
+    cell.dataset.shapeY = y;
     cell.style.left = `${x * cellSize}px`;
     cell.style.top = `${y * cellSize}px`;
     cell.style.width = `${cellSize}px`;
@@ -85,7 +93,7 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
     const row = Math.floor(index / width);
     const col = index % width;
     cell.classList.toggle("filled", Boolean(state.board[row][col]));
-    cell.classList.remove("preview-valid", "preview-invalid", "clearing");
+    cell.classList.remove("preview-valid", "preview-invalid", "preview-clear", "clearing");
   });
 
   elements.tray.replaceChildren();
@@ -120,7 +128,6 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
 function renderPreview(drag) {
   clearPreview();
   if (!drag) return;
-
   for (const [x, y] of drag.shape.cells) {
     const col = drag.originCol + x;
     const row = drag.originRow + y;
@@ -129,11 +136,35 @@ function renderPreview(drag) {
     const cell = elements.board.children[row * drag.boardSize + col];
     cell.classList.add(drag.valid ? "preview-valid" : "preview-invalid");
   }
+
+  if (!drag.previewClearCells) return;
+  for (const key of drag.previewClearCells) {
+    const [row, col] = key.split(",").map(Number);
+    const cell = elements.board.children[row * drag.boardSize + col];
+    if (cell?.classList.contains("filled") || cell?.classList.contains("preview-valid")) {
+      cell.classList.add("preview-clear");
+    }
+  }
+  renderDragLayerClearPreview(drag);
 }
 
 function clearPreview() {
-  document.querySelectorAll(".preview-valid,.preview-invalid").forEach(cell => {
-    cell.classList.remove("preview-valid", "preview-invalid");
+  document.querySelectorAll(".preview-valid,.preview-invalid,.preview-clear").forEach(cell => {
+    cell.classList.remove("preview-valid", "preview-invalid", "preview-clear");
+  });
+  elements.dragLayer.querySelectorAll(".drag-preview-clear").forEach(cell => {
+    cell.classList.remove("drag-preview-clear");
+  });
+}
+
+function renderDragLayerClearPreview(drag) {
+  const clearCells = drag.previewClearCells;
+  if (!clearCells) return;
+  const clearKeys = new Set(clearCells);
+  elements.dragLayer.querySelectorAll(".piece-cell").forEach(cell => {
+    const row = drag.originRow + Number(cell.dataset.shapeY);
+    const col = drag.originCol + Number(cell.dataset.shapeX);
+    if (clearKeys.has(`${row},${col}`)) cell.classList.add("drag-preview-clear");
   });
 }
 
@@ -144,10 +175,12 @@ function animateClear(completed, gained, boardWidth) {
     elements.board.children[row * boardWidth + col].classList.add("clearing");
   }
 
-  elements.scoreBurst.textContent = `+${gained}`;
-  elements.scoreBurst.classList.remove("show");
-  void elements.scoreBurst.offsetWidth;
-  elements.scoreBurst.classList.add("show");
+  if (gained > 0) {
+    elements.scoreBurst.textContent = `+${gained}`;
+    elements.scoreBurst.classList.remove("show");
+    void elements.scoreBurst.offsetWidth;
+    elements.scoreBurst.classList.add("show");
+  }
 }
 
 function showModal(title, text, buttonText, options = {}) {

@@ -9,6 +9,7 @@ function defaultPreferences() {
     frequencyVersion: 2,
     dragInitialOffset: 110,
     dragMovingOffset: 110,
+    dragHorizontalOffset: 110,
     pieceHue: 212,
     snapOverlapMultiplier: 2.0,
     traySize: 3,

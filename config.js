@@ -10,6 +10,7 @@ const CONFIG = {
   drag: {
     baseLiftPx: 110,
     maxExtraLiftPx: 110,
+    maxHorizontalOffsetPx: 110,
     extraLiftDistancePx: 360,
 
     // Once a valid position is reached, require this much extra cell travel
