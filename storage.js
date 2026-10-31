@@ -1,5 +1,5 @@
 (function () {
-const { CONFIG } = window.GenericBlockGame;
+const { CONFIG, createEmptyBoard } = window.GenericBlockGame;
 
 // Reads the saved top score. Missing or invalid values become zero.
 function loadBestScore() {
@@ -28,7 +28,7 @@ function saveTimedBestScore(score, modified = false) {
   localStorage.setItem(key, String(score));
 }
 
-// Saves both to localStorage and the current browser history entry.
+// Save the game and recent moves for reload and Undo.
 function saveGame(state) {
   const saved = {
     ...state,
@@ -38,20 +38,17 @@ function saveGame(state) {
   localStorage.setItem(CONFIG.storageKey, JSON.stringify(saved));
 }
 
-// Browser history is preferred, with localStorage as a reload fallback.
+// Hex saves use their own key, leaving square games intact.
 function loadGame() {
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey));
 
-    const height = saved?.board?.length || 0;
-    const width = saved?.board?.[0]?.length || 0;
-    const validBoard = Array.isArray(saved?.board)
-      && [6, 9, 12].includes(height)
-      && width === height
-      && saved.board.every(row => Array.isArray(row) && row.length === width);
-    if (!validBoard) {
-      return null;
-    }
+    const radius = saved?.board?.radius;
+    if (![3, 4, 5].includes(radius)) return null;
+    const expectedCells = Object.keys(createEmptyBoard(radius + 1).cells);
+    const cells = saved.board.cells;
+    if (!cells || Object.keys(cells).length !== expectedCells.length
+      || !expectedCells.every(key => cells[key] === 0 || cells[key] === 1)) return null;
 
     return saved;
   } catch {

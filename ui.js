@@ -1,5 +1,9 @@
 (function () {
-const { CONFIG, shapeById, shapeDimensions, rotateShape } = window.GenericBlockGame;
+const {
+  CONFIG, shapeById, shapeDimensions, rotateShape, createEmptyBoard, boardChunks,
+  hexKey, hexToPixel, boardDimensions, HEX_HEIGHT,
+} = window.GenericBlockGame;
+const boardCells = new Map();
 
 // Shared DOM references are kept together so game logic stays readable.
 const elements = {
@@ -23,61 +27,98 @@ const elements = {
   scoreBurst: document.querySelector("#scoreBurst"),
 };
 
-// Builds the board once. Later renders only toggle cell classes.
-function buildBoard(size) {
+// Place cell centers on the hex grid, with no square cells behind the board.
+function buildHexGrid(container, side, makeCell) {
+  const board = createEmptyBoard(side);
+  const { width, height } = boardDimensions(side);
   const fragment = document.createDocumentFragment();
-  elements.board.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-  elements.board.style.gridTemplateRows = `repeat(${size}, 1fr)`;
-  elements.board.setAttribute("aria-label", `${size} by ${size} game board`);
-
-  for (let row = 0; row < size; row += 1) {
-    for (let col = 0; col < size; col += 1) {
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.dataset.row = row;
-      cell.dataset.col = col;
-      cell.setAttribute("role", "gridcell");
-
-      if ((col + 1) % 3 === 0 && col < size - 1) {
-        cell.classList.add("block-right");
-      }
-      if (col % 3 === 0 && col > 0) {
-        cell.classList.add("block-left");
-      }
-      if ((row + 1) % 3 === 0 && row < size - 1) {
-        cell.classList.add("block-bottom");
-      }
-      if (row % 3 === 0 && row > 0) {
-        cell.classList.add("block-top");
-      }
-      if ((Math.floor(row / 3) + Math.floor(col / 3)) % 2 === 0) {
-        cell.classList.add("box-tint");
-      }
-
-      fragment.append(cell);
-    }
+  container.style.aspectRatio = `${width} / ${height}`;
+  for (const key of Object.keys(board.cells)) {
+    const [q, r] = key.split(",").map(Number);
+    const center = hexToPixel(q, r);
+    const cell = makeCell(q, r, key);
+    cell.style.left = `${(center.x + (width - 1) / 2) / width * 100}%`;
+    cell.style.top = `${(center.y + (height - HEX_HEIGHT) / 2) / height * 100}%`;
+    cell.style.width = `${100 / width}%`;
+    cell.style.height = `${HEX_HEIGHT / height * 100}%`;
+    fragment.append(cell);
   }
+  container.replaceChildren(fragment);
+}
 
-  elements.board.replaceChildren(fragment);
+function buildBoard(side) {
+  boardCells.clear();
+  const board = createEmptyBoard(side);
+  buildHexGrid(elements.board, side, (q, r, key) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.dataset.q = q;
+    cell.dataset.r = r;
+    cell.setAttribute("role", "gridcell");
+    cell.setAttribute("aria-label", `Hex ${q}, ${r}`);
+    boardCells.set(key, cell);
+    return cell;
+  });
+  elements.board.setAttribute("aria-label", `Hexagon board, ${side} cells per edge, ${boardCells.size} cells`);
+  drawChunkOutlines(board, side);
+}
+
+// Draw only the outside edges of each fixed group, above the cell fills.
+function drawChunkOutlines(board, side) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const overlay = document.createElementNS(svgNS, "svg");
+  const { width, height } = boardDimensions(side);
+  overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  overlay.setAttribute("class", "chunk-outlines");
+  overlay.setAttribute("aria-hidden", "true");
+  const directions = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
+  const chunks = boardChunks(board);
+  chunks.forEach((chunk, index) => {
+    const members = new Set(chunk.cells);
+    let path = "";
+    for (const key of chunk.cells) {
+      boardCells.get(key).dataset.chunk = chunk.center;
+      boardCells.get(key).classList.add(index % 2 ? "chunk-tint-a" : "chunk-tint-b");
+      const [q, r] = key.split(",").map(Number);
+      const center = hexToPixel(q, r);
+      for (let edge = 0; edge < 6; edge += 1) {
+        const [dq, dr] = directions[edge];
+        if (members.has(hexKey(q + dq, r + dr))) continue;
+        const points = [edge, edge + 1].map(corner => {
+          const angle = (corner * 60 - 90) * Math.PI / 180;
+          const x = center.x + width / 2 + Math.cos(angle) / Math.sqrt(3);
+          const y = center.y + height / 2 + Math.sin(angle) / Math.sqrt(3);
+          return `${x},${y}`;
+        });
+        path += `M${points[0]}L${points[1]}`;
+      }
+    }
+    const outline = document.createElementNS(svgNS, "path");
+    outline.dataset.center = chunk.center;
+    outline.setAttribute("d", path);
+    overlay.append(outline);
+  });
+  elements.board.append(overlay);
 }
 
 // Creates a visual piece at either tray size or full board-cell size.
 function makePiece(shape, cellSize) {
-  const { width, height } = shapeDimensions(shape);
+  const { width, height, minX, minY } = shapeDimensions(shape);
   const piece = document.createElement("div");
   piece.className = "piece";
   piece.style.width = `${width * cellSize}px`;
   piece.style.height = `${height * cellSize}px`;
 
-  for (const [x, y] of shape.cells) {
+  for (const [q, r] of shape.cells) {
+    const center = hexToPixel(q, r);
     const cell = document.createElement("i");
     cell.className = "piece-cell";
-    cell.dataset.shapeX = x;
-    cell.dataset.shapeY = y;
-    cell.style.left = `${x * cellSize}px`;
-    cell.style.top = `${y * cellSize}px`;
+    cell.dataset.shapeQ = q;
+    cell.dataset.shapeR = r;
+    cell.style.left = `${(center.x - minX - 0.5) * cellSize}px`;
+    cell.style.top = `${(center.y - minY - HEX_HEIGHT / 2) * cellSize}px`;
     cell.style.width = `${cellSize}px`;
-    cell.style.height = `${cellSize}px`;
+    cell.style.height = `${HEX_HEIGHT * cellSize}px`;
     piece.append(cell);
   }
 
@@ -87,12 +128,8 @@ function makePiece(shape, cellSize) {
 // Redraws scores, occupied cells, and the current tray.
 // The callback lets the controller attach pointer behavior to each tray slot.
 function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointerDown) {
-  const height = state.board.length;
-  const width = state.board[0]?.length || 0;
-  [...elements.board.children].forEach((cell, index) => {
-    const row = Math.floor(index / width);
-    const col = index % width;
-    cell.classList.toggle("filled", Boolean(state.board[row][col]));
+  boardCells.forEach((cell, key) => {
+    cell.classList.toggle("filled", Boolean(state.board.cells[key]));
     cell.classList.remove("preview-valid", "preview-invalid", "preview-clear", "clearing");
   });
 
@@ -111,7 +148,12 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
 
     if (item.used) slot.classList.add("used");
     if (!item.used && !placeable) slot.classList.add("disabled");
-    if (!item.used) slot.append(makePiece(shape, CONFIG.trayCellSize));
+    if (!item.used) {
+      const { width, height } = shapeDimensions(shape);
+      const slotWidth = (elements.tray.clientWidth || 300) / Math.max(1, trayColumns);
+      const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
+      slot.append(makePiece(shape, cellSize));
+    }
 
     slot.addEventListener("pointerdown", onPointerDown);
     elements.tray.append(slot);
@@ -128,19 +170,14 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
 function renderPreview(drag) {
   clearPreview();
   if (!drag) return;
-  for (const [x, y] of drag.shape.cells) {
-    const col = drag.originCol + x;
-    const row = drag.originRow + y;
-    if (row < 0 || row >= drag.boardSize || col < 0 || col >= drag.boardSize) continue;
-
-    const cell = elements.board.children[row * drag.boardSize + col];
-    cell.classList.add(drag.valid ? "preview-valid" : "preview-invalid");
+  for (const [q, r] of drag.shape.cells) {
+    const cell = boardCells.get(hexKey(drag.originQ + q, drag.originR + r));
+    cell?.classList.add(drag.valid ? "preview-valid" : "preview-invalid");
   }
 
   if (!drag.previewClearCells) return;
   for (const key of drag.previewClearCells) {
-    const [row, col] = key.split(",").map(Number);
-    const cell = elements.board.children[row * drag.boardSize + col];
+    const cell = boardCells.get(key);
     if (cell?.classList.contains("filled") || cell?.classList.contains("preview-valid")) {
       cell.classList.add("preview-clear");
     }
@@ -162,17 +199,16 @@ function renderDragLayerClearPreview(drag) {
   if (!clearCells) return;
   const clearKeys = new Set(clearCells);
   elements.dragLayer.querySelectorAll(".piece-cell").forEach(cell => {
-    const row = drag.originRow + Number(cell.dataset.shapeY);
-    const col = drag.originCol + Number(cell.dataset.shapeX);
-    if (clearKeys.has(`${row},${col}`)) cell.classList.add("drag-preview-clear");
+    const q = drag.originQ + Number(cell.dataset.shapeQ);
+    const r = drag.originR + Number(cell.dataset.shapeR);
+    if (clearKeys.has(hexKey(q, r))) cell.classList.add("drag-preview-clear");
   });
 }
 
 // Runs the board clear and floating score effects.
-function animateClear(completed, gained, boardWidth) {
+function animateClear(completed, gained) {
   for (const key of completed) {
-    const [row, col] = key.split(",").map(Number);
-    elements.board.children[row * boardWidth + col].classList.add("clearing");
+    boardCells.get(key)?.classList.add("clearing");
   }
 
   if (gained > 0) {
@@ -203,6 +239,7 @@ function hideModal() {
 Object.assign(window.GenericBlockGame, {
   elements,
   buildBoard,
+  buildHexGrid,
   makePiece,
   renderGame,
   renderPreview,

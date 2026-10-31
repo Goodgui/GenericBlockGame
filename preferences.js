@@ -13,7 +13,7 @@ function defaultPreferences() {
     pieceHue: 212,
     snapOverlapMultiplier: 2.0,
     traySize: 3,
-    boardWidth: 9,
+    boardSide: 5,
     timeTrialEnabled: false,
     timeTrialSeconds: 180,
   };
@@ -23,8 +23,8 @@ function loadPreferences() {
   try {
     const saved = JSON.parse(localStorage.getItem(CONFIG.settingsKey));
     const preferences = { ...defaultPreferences(), ...saved };
-    if (![6, 9, 12].includes(Number(preferences.boardWidth))) {
-      preferences.boardWidth = 9;
+    if (![4, 5, 6].includes(Number(preferences.boardSide))) {
+      preferences.boardSide = 5;
     }
     if (preferences.frequencyVersion !== 2) {
       for (const setting of Object.values(preferences.pieces || {})) delete setting.weight;
@@ -52,7 +52,7 @@ function isDefaultPreferences(preferences = loadPreferences()) {
   });
 
   return Number(preferences.traySize) === defaults.traySize
-    && Number(preferences.boardWidth) === defaults.boardWidth
+    && Number(preferences.boardSide) === defaults.boardSide
     && (preferences.customPieces || []).length === 0
     && pieceSettingsAreDefault;
 }

@@ -3,6 +3,11 @@
 (function () {
 const {
   CONFIG,
+  cloneBoard,
+  hexToPixel,
+  pixelToHex,
+  hexDistance,
+  boardDimensions,
   randomShape,
   getConfiguredShapes,
   shapeById,
@@ -48,15 +53,13 @@ let drag = null;
 let timerInterval = null;
 let lastTimerTick = 0;
 let pendingClearCells = null;
-
-function cellKey(row, col) {
-  return `${row},${col}`;
-}
+let placementPending = false;
+let boardChangeId = 0;
 
 // Creates all mutable values for a completely new game.
 function createInitialState(timed = activeTimed) {
   const preferences = loadPreferences();
-  const size = preferences.boardWidth;
+  const size = preferences.boardSide;
   return {
     board: createEmptyBoard(size),
     score: 0,
@@ -74,19 +77,19 @@ function createInitialState(timed = activeTimed) {
 // Supplies renderGame with the current board-aware placement check.
 function isShapePlaceable(shape) {
   if (!pendingClearCells) {
-    return canPlaceAnywhere(state.board, shape, shapeDimensions(shape));
+    return canPlaceAnywhere(state.board, shape);
   }
 
   // During a clear animation, tray availability should reflect the board
   // after those cells disappear, avoiding a brief incorrect gray state.
-  const projectedBoard = state.board.map(row => [...row]);
+  const projectedBoard = cloneBoard(state.board);
   clearCells(projectedBoard, pendingClearCells);
-  return canPlaceAnywhere(projectedBoard, shape, shapeDimensions(shape));
+  return canPlaceAnywhere(projectedBoard, shape);
 }
 
-function getPreviewClearCells(shape, originCol, originRow) {
-  const previewBoard = state.board.map(row => [...row]);
-  fillShape(previewBoard, shape, originCol, originRow);
+function getPreviewClearCells(shape, originQ, originR) {
+  const previewBoard = cloneBoard(state.board);
+  fillShape(previewBoard, shape, originQ, originR);
   const completed = findCompletedCells(previewBoard);
   return completed.zoneCount ? completed.cells : null;
 }
@@ -132,10 +135,15 @@ function applyPreferences() {
 // Any setting change begins a clean run under the newly selected rules.
 function restartForSettingsChange() {
   const preferences = loadPreferences();
+  cleanupDrag();
+  boardChangeId += 1;
+  placementPending = false;
+  pendingClearCells = null;
   stopTimer();
   activeTimed = preferences.timeTrialEnabled;
   state = createInitialState(activeTimed);
-  buildBoard(preferences.boardWidth);
+  hideModal();
+  buildBoard(preferences.boardSide);
   deliverTray();
 }
 
@@ -145,7 +153,7 @@ function deliverTray() {
   state.tray = Array.from({ length: traySize }, (_, index) => ({
     uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
     shapeId: randomShape().id,
-    rotation: Math.floor(Math.random() * 4),
+    rotation: Math.floor(Math.random() * 6),
     used: false,
   }));
   ensureTrayHasPlaceablePiece();
@@ -163,9 +171,9 @@ function getPlaceableTrayItem(index) {
   const pool = enabledShapes.length ? enabledShapes : configuredShapes;
 
   for (const shape of pool) {
-    for (let rotation = 0; rotation < 4; rotation += 1) {
+    for (let rotation = 0; rotation < 6; rotation += 1) {
       const rotatedShape = rotateShape(shape, rotation);
-      if (canPlaceAnywhere(state.board, rotatedShape, shapeDimensions(rotatedShape))) {
+      if (canPlaceAnywhere(state.board, rotatedShape)) {
         return {
           uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
           shapeId: shape.id,
@@ -182,7 +190,7 @@ function getPlaceableTrayItem(index) {
 function ensureTrayHasPlaceablePiece() {
   const hasPlaceablePiece = state.tray.some(item => {
     const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
-    return canPlaceAnywhere(state.board, shape, shapeDimensions(shape));
+    return canPlaceAnywhere(state.board, shape);
   });
   if (hasPlaceablePiece) return;
 
@@ -193,36 +201,39 @@ function ensureTrayHasPlaceablePiece() {
 // Stores the exact state before a move so Undo can restore it.
 function snapshot() {
   return {
-    board: state.board.map(row => [...row]),
+    board: cloneBoard(state.board),
     score: state.score,
     streak: state.streak,
     tray: state.tray.map(item => ({ ...item })),
   };
 }
 
-function placePiece(item, shape, originCol, originRow) {
+function placePiece(item, shape, originQ, originR) {
+  placementPending = true;
+  const changeId = boardChangeId;
   if (activeTimed && !state.timerStarted) {
     state.timerStarted = true;
     startTimer();
   }
   state.history.push(snapshot());
-  fillShape(state.board, shape, originCol, originRow);
+  fillShape(state.board, shape, originQ, originR);
   item.used = true;
 
   const completed = findCompletedCells(state.board);
   if (completed.zoneCount) {
     state.streak += 1;
 
-    // Each zone is worth one point per square. Multiple zones also multiply
+    // Each line or chunk is worth one point per cell. Multiple clears multiply
     // the clear, while consecutive scoring moves increase the streak.
     const gained = completed.pointValue * completed.zoneCount * state.streak;
     state.score += gained;
     // Show the entire newly placed shape before its completed cells animate out.
     pendingClearCells = completed.cells;
     render();
-    animateClear(completed.cells, gained, state.board[0].length);
+    animateClear(completed.cells, gained);
     // Keep filled cells visible until their removal animation completes.
     window.setTimeout(() => {
+      if (changeId !== boardChangeId) return;
       clearCells(state.board, completed.cells);
       pendingClearCells = null;
       finishPlacement();
@@ -242,16 +253,23 @@ function placePiece(item, shape, originCol, originRow) {
 function finishPlacement() {
   render();
   saveGame(state);
-  if (state.gameOver) return;
+  if (state.gameOver) { placementPending = false; return; }
   if (state.tray.every(piece => piece.used)) {
-    window.setTimeout(deliverTray, 80);
+    const changeId = boardChangeId;
+    window.setTimeout(() => {
+      if (changeId !== boardChangeId) return;
+      placementPending = false;
+      deliverTray();
+    }, 80);
   } else {
+    placementPending = false;
     checkGameOver();
   }
 }
 
 // Undo history is discarded whenever a new tray is delivered.
 function undo() {
+  if (placementPending || drag) return;
   const previous = state.history.pop();
   if (!previous) return;
 
@@ -390,7 +408,7 @@ function finishTimeTrial() {
 
 // Starts a drag from the entire large tray slot, not just the colored cells.
 function beginDrag(event) {
-  if (state.gameOver) return;
+  if (state.gameOver || placementPending) return;
   if (drag || event.isPrimary === false) return;
   if (event.button !== undefined && event.button !== 0) return;
 
@@ -408,10 +426,10 @@ function beginDrag(event) {
 
   const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
   const boardRect = elements.board.getBoundingClientRect();
-  const boardSize = state.board.length;
-  const cellSize = boardRect.width / boardSize;
+  const boardSize = boardDimensions(state.board.radius + 1);
+  const cellSize = boardRect.width / boardSize.width;
   const piece = makePiece(shape, cellSize);
-  const { width, height } = shapeDimensions(shape);
+  const { width, height, minX, minY } = shapeDimensions(shape);
   const trayPiece = slot.querySelector(".piece");
   const trayPieceRect = trayPiece.getBoundingClientRect();
   const grabX = Math.max(
@@ -434,6 +452,8 @@ function beginDrag(event) {
     shape,
     slot,
     cellSize,
+    anchorX: -minX * cellSize,
+    anchorY: -minY * cellSize,
     startX: event.clientX,
     startY: event.clientY,
     grabRatioX: trayPieceRect.width ? grabX / trayPieceRect.width : 0.5,
@@ -443,10 +463,9 @@ function beginDrag(event) {
     layerHeight: height * cellSize,
     layerLeft: 0,
     layerTop: 0,
-    originCol: null,
-    originRow: null,
+    originQ: null,
+    originR: null,
     valid: false,
-    boardSize,
   };
 
   updateDrag(event);
@@ -459,7 +478,18 @@ function beginDrag(event) {
 function liftForPointer(pointerY) {
   const movedUp = Math.max(0, drag.startY - pointerY);
   const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
-  return CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
+  const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
+  // Keep the bottom of the board within reach on a short landscape screen.
+  return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
+    ? Math.min(lift, 24)
+    : lift;
+}
+
+function snapDragToCell(boardRect) {
+  const point = hexToPixel(drag.originQ, drag.originR, drag.cellSize);
+  const left = boardRect.left + boardRect.width / 2 + point.x - drag.anchorX;
+  const top = boardRect.top + boardRect.height / 2 + point.y - drag.anchorY;
+  elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 }
 
 function updateDrag(event) {
@@ -484,45 +514,45 @@ function updateDrag(event) {
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 
-  // Snap the lifted piece's center to the nearest board-cell origin.
+  // Snap the anchor to the nearest hex center, using all three axes.
   const boardRect = elements.board.getBoundingClientRect();
-  const centerX = left + (width * drag.cellSize) / 2;
-  const centerY = top + (height * drag.cellSize) / 2;
-  const rawCol = (centerX - boardRect.left) / drag.cellSize - width / 2;
-  const rawRow = (centerY - boardRect.top) / drag.cellSize - height / 2;
-  const candidateCol = Math.round(rawCol);
-  const candidateRow = Math.round(rawRow);
+  const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
+  const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
+  const candidate = pixelToHex(anchorX, anchorY, drag.cellSize);
   const candidateIsValid = canPlace(
     state.board,
     drag.shape,
-    candidateCol,
-    candidateRow,
+    candidate.q,
+    candidate.r,
   );
 
   // Hold the previous valid origin when the nearest snap point is invalid.
   // Normal snapping changes at half a cell; resistance extends that boundary.
   if (drag.valid && !candidateIsValid) {
     const resistance = Math.max(0, CONFIG.drag.invalidMoveResistance);
-    const colDistance = Math.abs(rawCol - drag.originCol);
-    const rowDistance = Math.abs(rawRow - drag.originRow);
+    const distance = hexDistance(candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
     const releaseDistance = 0.5 + resistance;
 
-    if (colDistance < releaseDistance && rowDistance < releaseDistance) {
-      drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originCol, drag.originRow);
+    if (distance < releaseDistance) {
+      snapDragToCell(boardRect);
+      drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originQ, drag.originR);
       elements.dragLayer.classList.remove("invalid");
       renderPreview(drag);
       return;
     }
   }
 
-  drag.originCol = candidateCol;
-  drag.originRow = candidateRow;
+  drag.originQ = candidate.q;
+  drag.originR = candidate.r;
   drag.valid = candidateIsValid;
   drag.previewClearCells = drag.valid
-    ? getPreviewClearCells(drag.shape, drag.originCol, drag.originRow)
+    ? getPreviewClearCells(drag.shape, drag.originQ, drag.originR)
     : null;
 
   elements.dragLayer.classList.toggle("invalid", !drag.valid);
+  if (drag.valid) {
+    snapDragToCell(boardRect);
+  }
   renderPreview(drag);
 }
 
@@ -535,8 +565,8 @@ function endDrag(event) {
     placePiece(
       completedDrag.item,
       completedDrag.shape,
-      completedDrag.originCol,
-      completedDrag.originRow,
+      completedDrag.originQ,
+      completedDrag.originR,
     );
   } else {
     returnDragToTray();
@@ -589,6 +619,7 @@ function returnDragToTray() {
 }
 
 function openResetModal() {
+  if (placementPending || drag) return;
   showModal(
     activeTimed ? "Restart time trial?" : "Restart game?",
     activeTimed
@@ -599,24 +630,25 @@ function openResetModal() {
 }
 
 function startNewGame() {
+  if (placementPending) return;
+  cleanupDrag();
   stopTimer();
   hideModal();
-  const hasFilledCells = state.board.some(row => row.some(Boolean));
+  const cells = new Set(Object.keys(state.board.cells).filter(key => state.board.cells[key]));
+  const hasFilledCells = cells.size > 0;
   if (hasFilledCells) {
-    const cells = new Set();
-    state.board.forEach((row, rowIndex) => {
-      row.forEach((filled, colIndex) => {
-        if (filled) cells.add(cellKey(rowIndex, colIndex));
-      });
-    });
-    animateClear(cells, 0, state.board.length);
-    window.setTimeout(resetGameState, 280);
+    placementPending = true;
+    const changeId = boardChangeId;
+    animateClear(cells, 0);
+    window.setTimeout(() => { if (changeId === boardChangeId) resetGameState(); }, 280);
   } else {
     resetGameState();
   }
 }
 
 function resetGameState() {
+  placementPending = false;
+  pendingClearCells = null;
   state = createInitialState(activeTimed);
   deliverTray();
 }
@@ -652,6 +684,10 @@ elements.modalUndoButton.addEventListener("click", undo);
 elements.fullscreenButton.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", updateFullscreenButton);
 window.addEventListener("blur", cancelDrag);
+window.addEventListener("resize", () => {
+  cleanupDrag();
+  if (!placementPending) render();
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) cancelDrag();
 });
@@ -690,7 +726,7 @@ if (savedState?.tray?.length && savedState.timedMode === activeTimed) {
     state.scoringVersion = 2;
     saveGame(state);
   }
-  buildBoard(state.board.length);
+  buildBoard(state.board.radius + 1);
   render();
   if (state.gameOver) {
     showModal(
@@ -704,7 +740,7 @@ if (savedState?.tray?.length && savedState.timedMode === activeTimed) {
     if (state.timerStarted) startTimer();
   }
 } else {
-  buildBoard(state.board.length);
+  buildBoard(state.board.radius + 1);
   render();
 }
 }());

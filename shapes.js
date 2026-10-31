@@ -1,23 +1,21 @@
 (function () {
-// Every available piece is defined here as [x, y] cells.
+const { hexToPixel, HEX_HEIGHT } = window.GenericBlockGame;
+// Each piece uses [q, r] hex cells and includes the [0, 0] anchor.
 // Weight controls how often a shape appears: larger numbers appear more often.
 // Add a new object to this array to add a new piece to the game.
 const SHAPES = [
   { id: "single", weight: 5, cells: [[0,0]] },
   { id: "line2", weight: 5, cells: [[0,0],[1,0]] },
-  { id: "diagonal2", weight: 5, cells: [[0,0],[1,1]] },
   { id: "line3", weight: 5, cells: [[0,0],[1,0],[2,0]] },
-  { id: "diagonal3", weight: 5, cells: [[0,0],[1,1],[2,2]] },
   { id: "line4", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0]] },
   { id: "line5", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
-  { id: "square2", weight: 5, cells: [[0,0],[1,0],[0,1],[1,1]] },
-  { id: "corner3", weight: 5, cells: [[0,0],[0,1],[1,1]] },
-  { id: "corner5", weight: 5, cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
-  { id: "t4", weight: 5, cells: [[0,0],[1,0],[2,0],[1,1]] },
-  { id: "s4", weight: 5, cells: [[1,0],[2,0],[0,1],[1,1]] },
-  { id: "z4", weight: 5, cells: [[0,0],[1,0],[1,1],[2,1]] },
-  { id: "plus5", weight: 5, cells: [[1,0],[0,1],[1,1],[2,1],[1,2]] },
-  { id: "u5", weight: 5, cells: [[0,0],[2,0],[0,1],[1,1],[2,1]] },
+  { id: "bend3", weight: 5, cells: [[0,0],[1,0],[1,1]] },
+  { id: "triangle3", weight: 5, cells: [[0,0],[1,0],[0,1]] },
+  { id: "diamond4", weight: 5, cells: [[0,0],[1,0],[0,1],[1,1]] },
+  { id: "fork4", weight: 5, cells: [[0,0],[1,0],[-1,1],[0,-1]] },
+  { id: "zigzag4", weight: 5, cells: [[0,0],[1,0],[1,1],[2,1]] },
+  { id: "hook4", weight: 5, cells: [[0,0],[1,0],[2,0],[2,-1]] },
+  { id: "arc4", weight: 5, cells: [[0,0],[1,0],[1,1],[0,2]] },
 ];
 
 // Looks up a shape stored in the tray by its short ID.
@@ -45,24 +43,27 @@ function getConfiguredShapes() {
   });
 }
 
-// Finds the rectangular space occupied by a shape.
+// Bounds include the whole hex tile, even when a turn gives negative offsets.
 function shapeDimensions(shape) {
+  const centers = shape.cells.map(([q, r]) => hexToPixel(q, r));
+  const minX = Math.min(...centers.map(cell => cell.x)) - 0.5;
+  const minY = Math.min(...centers.map(cell => cell.y)) - HEX_HEIGHT / 2;
   return {
-    width: Math.max(...shape.cells.map(([x]) => x)) + 1,
-    height: Math.max(...shape.cells.map(([, y]) => y)) + 1,
+    minX,
+    minY,
+    width: Math.max(...centers.map(cell => cell.x)) + 0.5 - minX,
+    height: Math.max(...centers.map(cell => cell.y)) + HEX_HEIGHT / 2 - minY,
   };
 }
 
-// Rotates clockwise in 90-degree steps and normalizes back to the top-left.
+// Rotate clockwise by 60 degrees around the anchor cell.
 function rotateShape(shape, turns = 0) {
   let cells = shape.cells.map(([x, y]) => [x, y]);
-  const rotations = ((turns % 4) + 4) % 4;
+  const rotations = ((turns % 6) + 6) % 6;
   for (let turn = 0; turn < rotations; turn += 1) {
-    cells = cells.map(([x, y]) => [-y, x]);
+    cells = cells.map(([q, r]) => [-r, q + r]);
   }
-  const minX = Math.min(...cells.map(([x]) => x));
-  const minY = Math.min(...cells.map(([, y]) => y));
-  return { ...shape, cells: cells.map(([x, y]) => [x - minX, y - minY]) };
+  return { ...shape, cells };
 }
 
 // Picks a random shape while respecting each shape's frequency weight.

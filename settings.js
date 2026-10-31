@@ -7,6 +7,8 @@ const {
   loadPreferences,
   savePreferences,
   shapeDimensions,
+  makePiece,
+  buildHexGrid,
 } = window.GenericBlockGame;
 
 const panel = document.querySelector("#settingsPanel");
@@ -47,15 +49,7 @@ function makePreview(shape) {
   const { width, height } = shapeDimensions(shape);
   const preview = document.createElement("div");
   preview.className = "settings-piece-preview";
-  preview.style.gridTemplateColumns = `repeat(${width}, 9px)`;
-  preview.style.gridTemplateRows = `repeat(${height}, 9px)`;
-
-  for (const [x, y] of shape.cells) {
-    const cell = document.createElement("i");
-    cell.style.gridColumn = x + 1;
-    cell.style.gridRow = y + 1;
-    preview.append(cell);
-  }
+  preview.append(makePiece(shape, Math.min(9, 46 / width, 46 / height)));
   return preview;
 }
 
@@ -140,26 +134,28 @@ function removeCustomPiece(id) {
 }
 
 function buildEditor() {
-  for (let y = 0; y < 5; y += 1) {
-    for (let x = 0; x < 5; x += 1) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.dataset.cell = `${x},${y}`;
-      button.setAttribute("aria-label", `Editor cell ${x + 1}, ${y + 1}`);
-      button.addEventListener("click", () => {
-        const key = button.dataset.cell;
-        selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
-        button.classList.toggle("selected", selectedCells.has(key));
-        message.textContent = "";
-      });
-      editor.append(button);
-    }
-  }
+  buildHexGrid(editor, 3, (q, r, key) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.cell = key;
+    button.setAttribute("aria-label", `Editor hex ${q}, ${r}`);
+    button.setAttribute("aria-pressed", "false");
+    button.addEventListener("click", () => {
+      selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
+      button.classList.toggle("selected", selectedCells.has(key));
+      button.setAttribute("aria-pressed", String(selectedCells.has(key)));
+      message.textContent = "";
+    });
+    return button;
+  });
 }
 
 function clearEditor() {
   selectedCells.clear();
-  editor.querySelectorAll("button").forEach(button => button.classList.remove("selected"));
+  editor.querySelectorAll("button").forEach(button => {
+    button.classList.remove("selected");
+    button.setAttribute("aria-pressed", "false");
+  });
   nameInput.value = "";
   message.textContent = "";
 }
@@ -180,9 +176,9 @@ function pieceAlreadyExists(cells) {
   let rotatedCells = cells.map(([x, y]) => [x, y]);
   const candidateKeys = new Set();
 
-  for (let turn = 0; turn < 4; turn += 1) {
+  for (let turn = 0; turn < 6; turn += 1) {
     candidateKeys.add(layoutKey(rotatedCells));
-    rotatedCells = rotatedCells.map(([x, y]) => [-y, x]);
+    rotatedCells = rotatedCells.map(([q, r]) => [-r, q + r]);
   }
 
   return getAllShapes().some(shape => candidateKeys.has(layoutKey(shape.cells)));
@@ -191,12 +187,11 @@ function pieceAlreadyExists(cells) {
 function saveCustomPiece() {
   const cells = [...selectedCells].map(key => key.split(",").map(Number));
   if (!cells.length) {
-    message.textContent = "Select at least one square.";
+    message.textContent = "Select at least one hex.";
     return;
   }
-  const minX = Math.min(...cells.map(([x]) => x));
-  const minY = Math.min(...cells.map(([, y]) => y));
-  const normalized = cells.map(([x, y]) => [x - minX, y - minY]);
+  const [anchorQ, anchorR] = cells[0];
+  const normalized = cells.map(([q, r]) => [q - anchorQ, r - anchorR]);
   if (pieceAlreadyExists(normalized)) {
     message.textContent = "This piece already exists, possibly in another orientation.";
     return;
@@ -245,7 +240,7 @@ function openSettings() {
   pieceHueValue.textContent = `${preferences.pieceHue}°`;
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
   traySizeSetting.value = String(preferences.traySize);
-  updateBoardSizeControl(preferences.boardWidth);
+  updateBoardSizeControl(preferences.boardSide);
   renderPieceList();
   panel.classList.add("is-open");
   panel.setAttribute("aria-hidden", "false");
@@ -262,7 +257,7 @@ function clampInteger(value, minimum, maximum) {
 }
 
 function updateBoardSizeControl(size) {
-  const sizes = [6, 9, 12];
+  const sizes = [4, 5, 6];
   const selectedIndex = Math.max(0, sizes.indexOf(size));
   boardSizeSetting.style.setProperty("--selected-index", selectedIndex);
   boardSizeSetting.querySelectorAll("button").forEach(button => {
@@ -284,7 +279,7 @@ function updateGameModeControl(timed) {
 function openResetConfirmation(type) {
   pendingReset = type;
   resetConfirmationText.textContent = type === "score"
-    ? "Reset all normal and timed top scores to zero? This cannot be undone."
+    ? "Reset all hex top scores to zero? This cannot be undone."
     : "Restore every setting, frequency, drag offset, and custom piece to its default?";
   resetConfirmation.hidden = false;
   resetConfirmation.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -312,7 +307,7 @@ function confirmReset() {
     pieceHueValue.textContent = `${preferences.pieceHue}°`;
     snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
     traySizeSetting.value = String(preferences.traySize);
-    updateBoardSizeControl(preferences.boardWidth);
+    updateBoardSizeControl(preferences.boardSide);
     clearEditor();
     renderPieceList();
     callbacks.onChange?.(preferences);
@@ -374,8 +369,8 @@ function initSettings(options) {
   boardSizeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-size]");
     if (!button) return;
-    preferences.boardWidth = Number(button.dataset.size);
-    updateBoardSizeControl(preferences.boardWidth);
+    preferences.boardSide = Number(button.dataset.size);
+    updateBoardSizeControl(preferences.boardSide);
     saveAndNotify();
   });
 

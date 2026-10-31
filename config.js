@@ -18,12 +18,12 @@ const CONFIG = {
     invalidMoveResistance: 0.5,
   },
 
-  storageKey: "generic-block-game-state-v1",
-  bestScoreKey: "generic-block-game-best-v1",
-  modifiedBestScoreKey: "generic-block-game-best-modified-v1",
-  timedBestScoreKey: "generic-block-game-best-timed-v1",
-  timedModifiedBestScoreKey: "generic-block-game-best-timed-modified-v1",
-  settingsKey: "generic-block-game-settings-v1",
+  storageKey: "generic-block-game-hex-state-v1",
+  bestScoreKey: "generic-block-game-hex-best-v1",
+  modifiedBestScoreKey: "generic-block-game-hex-best-modified-v1",
+  timedBestScoreKey: "generic-block-game-hex-best-timed-v1",
+  timedModifiedBestScoreKey: "generic-block-game-hex-best-timed-modified-v1",
+  settingsKey: "generic-block-game-hex-settings-v1",
 };
 
 window.GenericBlockGame = window.GenericBlockGame || {};

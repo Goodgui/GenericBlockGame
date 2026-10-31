@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hex phone layout check</title>
+  <style>
+    body { margin: 16px; font: 16px system-ui; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+    button, select { min-height: 44px; font: inherit; }
+    iframe { display: block; border: 0; }
+    output { display: block; margin: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <label>Viewport
+      <select id="size">
+        <option value="320,640">320 by 640</option>
+        <option value="390,844">390 by 844</option>
+        <option value="844,390">844 by 390</option>
+      </select>
+    </label>
+    <label>Version
+      <select id="version">
+        <option value="../index.html">Source game</option>
+        <option value="../exports/hex-prototype.html">Single HTML export</option>
+      </select>
+    </label>
+    <button id="check" type="button">Check layout</button>
+  </div>
+  <output id="result" aria-live="polite"></output>
+  <iframe id="phone" title="Phone game" src="../index.html" width="320" height="640"></iframe>
+  <script>
+    const phone = document.querySelector("#phone");
+    function check() {
+      const doc = phone.contentDocument;
+      if (!doc?.querySelector("#board")) return;
+      const width = doc.documentElement.clientWidth;
+      const height = doc.documentElement.clientHeight;
+      const box = element => {
+        const rect = element.getBoundingClientRect();
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+      };
+      const fits = element => {
+        const rect = element.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= width + 1 && rect.top >= 0 && rect.bottom <= height + 1;
+      };
+      const settings = doc.querySelector("#settingsPanel");
+      const settingsOpen = settings.classList.contains("is-open");
+      document.querySelector("#result").textContent = JSON.stringify({
+        version: phone.getAttribute("src"),
+        viewport: [width, height],
+        cells: doc.querySelectorAll("#board .cell").length,
+        pieces: doc.querySelectorAll(".tray-slot:not(.used) .piece").length,
+        boardFits: fits(doc.querySelector("#board")),
+        trayFits: fits(doc.querySelector("#tray")),
+        undoFits: fits(doc.querySelector("#undoButton")),
+        horizontalOverflow: doc.documentElement.scrollWidth > width,
+        filled: doc.querySelectorAll("#board .filled").length,
+        undoDisabled: doc.querySelector("#undoButton").disabled,
+        settingsOpen,
+        settingsOverflow: settingsOpen && doc.querySelector(".settings-content").scrollWidth > doc.querySelector(".settings-content").clientWidth,
+        board: box(doc.querySelector("#board")),
+        undo: box(doc.querySelector("#undoButton")),
+      });
+    }
+    document.querySelector("#check").addEventListener("click", check);
+    document.querySelector("#size").addEventListener("change", event => {
+      const [width, height] = event.target.value.split(",");
+      phone.width = width;
+      phone.height = height;
+    });
+    document.querySelector("#version").addEventListener("change", event => { phone.src = event.target.value; });
+    phone.addEventListener("load", check);
+  </script>
+</body>
+</html>
