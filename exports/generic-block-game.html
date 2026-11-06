@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
-  <title>GenericBlockGame | Hex prototype</title>
+  <title>GenericBlockGame</title>
   <style>
 :root {
   color-scheme: dark;
@@ -53,6 +53,7 @@ body {
 }
 
 button { font: inherit; }
+[hidden] { display: none !important; }
 
 .game-shell {
   width: min(100%, 720px);
@@ -71,7 +72,8 @@ button { font: inherit; }
 
 .topbar { min-height: 52px; }
 .topbar { padding: 0 18px; }
-.prototype-label { color: var(--muted); font-size: 14px; }
+.board-label { color: var(--muted); font-size: 14px; }
+.square-mode { --hex-points: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 
 .topbar-spacer { width: 44px; }
 
@@ -164,6 +166,16 @@ button { font: inherit; }
   text-align: right;
 }
 .best-score strong { color: #d1d5dc; font-size: 20px; font-weight: 600; }
+
+.match-scoreboard { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 16px; text-align: center; }
+.player-score { border-bottom: 2px solid transparent; padding-bottom: 3px; }
+.player-score .score-label { color: inherit; }
+.red-player { color: #e89494; }
+.blue-player { color: #93bce8; }
+.active-player { border-bottom-color: currentColor; }
+.turn-status { grid-column: 1 / -1; margin: 2px 0 0; color: var(--text); font-size: 13px; }
+.cell[data-player="red"] { --piece-hue: 0; --piece-bright: hsl(0 55% 64%); --piece-dark: hsl(0 45% 43%); }
+.cell[data-player="blue"] { --piece-bright: hsl(212 38% 63%); --piece-dark: hsl(212 32% 43%); }
 
 .board-wrap {
   position: relative;
@@ -334,6 +346,7 @@ button { font: inherit; }
 
 .undo-button:disabled { opacity: .28; cursor: default; }
 .undo-button.setting-hidden { visibility: hidden; pointer-events: none; }
+.tray-actions { display: flex; align-items: center; justify-content: center; gap: 10px; }
 
 .settings-panel {
   position: fixed;
@@ -480,7 +493,7 @@ button { font: inherit; }
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 6px) / 3);
+  width: calc((100% - 6px) / var(--segment-count, 3));
   border-radius: 4px;
   background: var(--accent-dark);
   transform: translateX(calc(var(--selected-index) * 100%));
@@ -500,13 +513,17 @@ button { font: inherit; }
 .segmented-control button.selected { color: white; }
 
 .mode-segmented-control {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--segment-count, 3), 1fr);
   margin-bottom: 12px;
 }
 
 .mode-segmented-control .segmented-indicator {
-  width: calc((100% - 6px) / 2);
+  width: calc((100% - 6px) / var(--segment-count, 3));
 }
+
+.board-mode-tabs { --segment-count: 2; grid-template-columns: repeat(2, 1fr); margin-bottom: 22px; }
+.segmented-control button[aria-selected="true"] { color: white; }
+.drag-settings [hidden], .mode-segmented-control [hidden] { display: none; }
 
 .general-heading { margin-bottom: 12px !important; }
 
@@ -831,7 +848,8 @@ input[type="number"]::-webkit-outer-spin-button {
   .score-panel { margin-top: 2px; margin-bottom: 8px; }
   .score { font-size: 32px; }
   .tray-section { min-height: 142px; }
-  .tray, .tray-slot { min-height: 100px; height: 100px; }
+  .tray, .tray-slot { min-height: 100px; }
+  .tray-slot { height: 100px; }
 }
 
 @media (min-height: 761px) {
@@ -896,7 +914,7 @@ input[type="number"]::-webkit-outer-spin-button {
 </style>
 </head>
 <body>
-  <main class="game-shell" aria-label="Hex block puzzle prototype">
+  <main class="game-shell" aria-label="Hex block puzzle game">
     <header class="topbar">
       <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">
         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -904,7 +922,7 @@ input[type="number"]::-webkit-outer-spin-button {
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
         </svg>
       </button>
-      <span class="prototype-label">Hex prototype</span>
+      <span id="boardLabel" class="board-label">Hex</span>
       <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 4v6h6"></path>
@@ -914,14 +932,25 @@ input[type="number"]::-webkit-outer-spin-button {
     </header>
 
     <section class="score-panel" aria-label="Score">
-      <div>
+      <div id="soloScore">
         <span class="score-label">Score</span>
         <span id="timerDisplay" class="timer-display" hidden>3:00</span>
         <strong id="score" class="score">0</strong>
       </div>
-      <div class="best-score">
+      <div id="bestScorePanel" class="best-score">
         <span id="bestScoreLabel" class="score-label">Best score</span>
         <strong id="bestScore">0</strong>
+      </div>
+      <div id="matchScoreboard" class="match-scoreboard" hidden aria-live="polite">
+        <div id="redPlayer" class="player-score red-player">
+          <span class="score-label">Red</span>
+          <strong id="redScore" class="score">0</strong>
+        </div>
+        <div id="bluePlayer" class="player-score blue-player">
+          <span class="score-label">Blue</span>
+          <strong id="blueScore" class="score">0</strong>
+        </div>
+        <p id="turnStatus" class="turn-status"></p>
       </div>
     </section>
 
@@ -932,9 +961,12 @@ input[type="number"]::-webkit-outer-spin-button {
 
     <section class="tray-section" aria-label="Piece tray">
       <div id="tray" class="tray"></div>
-      <button id="undoButton" class="undo-button" type="button" disabled>
-        <span aria-hidden="true">↶</span> Undo
-      </button>
+      <div class="tray-actions">
+        <button id="undoButton" class="undo-button" type="button" disabled>
+          <span aria-hidden="true">↶</span> Undo
+        </button>
+        <button id="passButton" class="undo-button pass-button" type="button" hidden>Pass</button>
+      </div>
     </section>
   </main>
 
@@ -949,23 +981,97 @@ input[type="number"]::-webkit-outer-spin-button {
 
       <div class="settings-content">
         <div class="settings-content-inner">
-        <section class="settings-section reset-settings-section">
-          <h3>Reset</h3>
-          <div class="reset-actions">
-            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
-            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
+        <div id="boardTypeSetting" class="segmented-control board-mode-tabs" role="tablist" aria-label="Board type">
+          <span class="segmented-indicator" aria-hidden="true"></span>
+          <button id="hexSettingsTab" type="button" data-board-mode="hex" role="tab" aria-controls="boardSettingsContent" aria-selected="true">Hex</button>
+          <button id="squareSettingsTab" type="button" data-board-mode="square" role="tab" aria-controls="boardSettingsContent" aria-selected="false">Square</button>
+        </div>
+        <div id="boardSettingsContent" role="tabpanel" aria-labelledby="hexSettingsTab">
+        <section class="settings-section">
+          <h3 class="general-heading">General</h3>
+          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
+            <span class="segmented-indicator" aria-hidden="true"></span>
+            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
+            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+            <button type="button" data-mode="two-player" role="radio">2 Player</button>
           </div>
-          <div id="resetConfirmation" class="reset-confirmation" hidden>
-            <p id="resetConfirmationText"></p>
-            <div>
-              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
-              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
+          <label class="setting-toggle">
+            <span>Show undo button</span>
+            <input id="undoSetting" type="checkbox">
+          </label>
+          <div class="drag-settings">
+            <label id="timeTrialDurationRow">
+              <span>Time trial limit</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
+                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Tray size</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
+                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
+                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
+              </span>
+            </label>
+            <div class="board-size-setting">
+              <span id="boardSizeLabel">Cells per edge</span>
+              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Cells per edge">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-size="4" role="radio">4</button>
+                <button type="button" data-size="5" role="radio">5</button>
+                <button type="button" data-size="6" role="radio">6</button>
+              </div>
             </div>
+            <label>
+              <span>Snap safety margin</span>
+              <span class="number-stepper multiplier-stepper">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
+                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
+              </span>
+            </label>
           </div>
         </section>
 
         <section class="settings-section">
+          <div class="settings-section-heading">
+            <div>
+              <h3>Pieces</h3>
+              <p>Enable pieces and change how often they appear.</p>
+            </div>
+          </div>
+          <div id="pieceSettingsList" class="piece-settings-list"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Create a piece</h3>
+          <p id="pieceEditorHint">Select hex cells to make a piece.</p>
+          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
+          <div class="designer-fields">
+            <label>
+              Name
+              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
+            </label>
+            <label>
+              Frequency
+              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
+            </label>
+          </div>
+          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
+          <div class="designer-actions">
+            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
+            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
+          </div>
+        </section>
+
+        </div>
+
+        <section class="settings-section">
           <h3>Accessibility</h3>
+          <p>Applies to Hex and Square.</p>
           <div class="drag-settings accessibility-settings">
             <label>
               <span>Pickup offset</span>
@@ -992,96 +1098,33 @@ input[type="number"]::-webkit-outer-spin-button {
               </span>
             </label>
             <label class="hue-setting">
-              <span>Piece hue</span>
+              <span>Piece hue (single player)</span>
               <span class="hue-control">
                 <input id="pieceHueSetting" type="range" min="0" max="359" step="1" aria-label="Piece color hue">
                 <output id="pieceHueValue" for="pieceHueSetting">212°</output>
               </span>
             </label>
-            <label>
-              <span>Snap safety margin</span>
-              <span class="number-stepper multiplier-stepper">
-                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
-                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
-                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
-              </span>
-            </label>
           </div>
         </section>
 
-        <section class="settings-section">
-          <h3 class="general-heading">General</h3>
-          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
-            <span class="segmented-indicator" aria-hidden="true"></span>
-            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
-            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+        <section class="settings-section reset-settings-section">
+          <h3>Reset</h3>
+          <p>Applies to Hex and Square.</p>
+          <div class="reset-actions">
+            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
+            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
           </div>
-          <label class="setting-toggle">
-            <span>Show undo button</span>
-            <input id="undoSetting" type="checkbox">
-          </label>
-          <div class="drag-settings">
-            <label id="timeTrialDurationRow">
-              <span>Time trial limit</span>
-              <span class="number-stepper">
-                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
-                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
-                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
-              </span>
-            </label>
-            <label>
-              <span>Tray size</span>
-              <span class="number-stepper">
-                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
-                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
-                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
-              </span>
-            </label>
-            <div class="board-size-setting">
-              <span>Cells per edge</span>
-              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Cells per edge">
-                <span class="segmented-indicator" aria-hidden="true"></span>
-                <button type="button" data-size="4" role="radio">4</button>
-                <button type="button" data-size="5" role="radio">5</button>
-                <button type="button" data-size="6" role="radio">6</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <div class="settings-section-heading">
+          <div id="resetConfirmation" class="reset-confirmation" hidden>
+            <p id="resetConfirmationText"></p>
             <div>
-              <h3>Pieces</h3>
-              <p>Enable pieces and change how often they appear.</p>
+              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
+              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
             </div>
-          </div>
-          <div id="pieceSettingsList" class="piece-settings-list"></div>
-        </section>
-
-        <section class="settings-section">
-          <h3>Create a piece</h3>
-          <p>Select hex cells to make a piece.</p>
-          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
-          <div class="designer-fields">
-            <label>
-              Name
-              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
-            </label>
-            <label>
-              Frequency
-              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
-            </label>
-          </div>
-          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
-          <div class="designer-actions">
-            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
-            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
           </div>
         </section>
 
         <footer class="settings-footer">
-          Hex prototype | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
+          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
         </footer>
         </div>
       </div>
@@ -1099,10 +1142,11 @@ input[type="number"]::-webkit-outer-spin-button {
 
   <div id="modal" class="modal is-open" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-card">
-      <h1 id="modalTitle">Hex prototype</h1>
+      <h1 id="modalTitle">GenericBlockGame</h1>
       <p id="modalText">Fit hex pieces. Clear full lines in three directions or an outlined seven-hex group. Edge cells outside the groups clear through lines.</p>
       <strong id="modalScore" class="modal-score" hidden>0</strong>
       <div class="modal-actions">
+        <button id="modalCancelButton" class="modal-undo-button" type="button" hidden>Cancel</button>
         <button id="modalUndoButton" class="modal-undo-button" type="button" hidden>↶ Undo</button>
         <button id="modalButton" class="primary-button" type="button">Start game</button>
       </div>
@@ -1121,9 +1165,9 @@ const CONFIG = {
   // The piece starts above the pointer, then rises farther as the pointer
   // travels away from the tray. This keeps the board visible under a finger.
   drag: {
-    baseLiftPx: 110,
-    maxExtraLiftPx: 110,
-    maxHorizontalOffsetPx: 110,
+    baseLiftPx: 100,
+    maxExtraLiftPx: 180,
+    maxHorizontalOffsetPx: 170,
     extraLiftDistancePx: 360,
 
     // Once a valid position is reached, require this much extra cell travel
@@ -1132,15 +1176,32 @@ const CONFIG = {
   },
 
   storageKey: "generic-block-game-hex-state-v1",
+  twoPlayerStorageKey: "generic-block-game-hex-two-player-v1",
   bestScoreKey: "generic-block-game-hex-best-v1",
   modifiedBestScoreKey: "generic-block-game-hex-best-modified-v1",
   timedBestScoreKey: "generic-block-game-hex-best-timed-v1",
   timedModifiedBestScoreKey: "generic-block-game-hex-best-timed-modified-v1",
   settingsKey: "generic-block-game-hex-settings-v1",
+  globalSettingsKey: "generic-block-game-global-settings-v1",
+  boardModeKey: "generic-block-game-board-mode-v1",
 };
+
+const SQUARE_STORAGE = {
+  storageKey: "generic-block-game-state-v1",
+  bestScoreKey: "generic-block-game-best-v1",
+  modifiedBestScoreKey: "generic-block-game-best-modified-v1",
+  timedBestScoreKey: "generic-block-game-best-timed-v1",
+  timedModifiedBestScoreKey: "generic-block-game-best-timed-modified-v1",
+  settingsKey: "generic-block-game-settings-v1",
+};
+
+function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
+  return mode === "square" ? SQUARE_STORAGE : CONFIG;
+}
 
 window.GenericBlockGame = window.GenericBlockGame || {};
 window.GenericBlockGame.CONFIG = CONFIG;
+window.GenericBlockGame.storageKeys = storageKeys;
 }());
 
 </script>
@@ -1193,46 +1254,105 @@ Object.assign(window.GenericBlockGame, {
 </script>
   <script>
 (function () {
-const { CONFIG } = window.GenericBlockGame;
+const { CONFIG, storageKeys } = window.GenericBlockGame;
 
-function defaultPreferences() {
+function getBoardMode() {
+  return localStorage.getItem(CONFIG.boardModeKey) === "square" ? "square" : "hex";
+}
+
+function setBoardMode(mode) {
+  if (mode === "hex" || mode === "square") localStorage.setItem(CONFIG.boardModeKey, mode);
+}
+
+function defaultGlobalPreferences() {
+  return { dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
+}
+
+function defaultModePreferences(mode = getBoardMode()) {
   return {
     undoEnabled: true,
     pieces: {},
     customPieces: [],
     frequencyVersion: 2,
-    dragInitialOffset: 110,
-    dragMovingOffset: 110,
-    dragHorizontalOffset: 110,
-    pieceHue: 212,
-    snapOverlapMultiplier: 2.0,
+    boardSettingsVersion: 1,
+    snapOverlapMultiplier: mode === "hex" ? 1.5 : 2.0,
     traySize: 3,
-    boardSide: 5,
+    boardSide: mode === "hex" ? 5 : 9,
     timeTrialEnabled: false,
+    twoPlayerEnabled: false,
     timeTrialSeconds: 180,
   };
 }
 
-function loadPreferences() {
+function defaultPreferences(mode = getBoardMode()) {
+  return { ...defaultModePreferences(mode), ...defaultGlobalPreferences() };
+}
+
+function readSettings(key) {
   try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.settingsKey));
-    const preferences = { ...defaultPreferences(), ...saved };
-    if (![4, 5, 6].includes(Number(preferences.boardSide))) {
-      preferences.boardSide = 5;
-    }
-    if (preferences.frequencyVersion !== 2) {
-      for (const setting of Object.values(preferences.pieces || {})) delete setting.weight;
-      preferences.frequencyVersion = 2;
-      localStorage.setItem(CONFIG.settingsKey, JSON.stringify(preferences));
-    }
-    return preferences;
+    const saved = JSON.parse(localStorage.getItem(key));
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null;
   } catch {
-    return defaultPreferences();
+    return null;
   }
 }
 
-function savePreferences(preferences) {
-  localStorage.setItem(CONFIG.settingsKey, JSON.stringify(preferences));
+function pickSettings(source, defaults) {
+  return Object.fromEntries(Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]]));
+}
+
+function loadGlobalPreferences() {
+  const defaults = defaultGlobalPreferences();
+  const saved = readSettings(CONFIG.globalSettingsKey);
+  if (saved) return pickSettings(saved, defaults);
+  const legacy = readSettings(storageKeys(getBoardMode()).settingsKey)
+    || readSettings(storageKeys(getBoardMode() === "hex" ? "square" : "hex").settingsKey) || {};
+  const global = pickSettings(legacy, defaults);
+  // Replace the old offset defaults while keeping custom values.
+  for (const key of ["dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset"]) {
+    if (global[key] === 110) global[key] = defaults[key];
+  }
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(global));
+  return global;
+}
+
+function loadPreferences(mode = getBoardMode()) {
+  const defaults = defaultModePreferences(mode);
+  const key = storageKeys(mode).settingsKey;
+  const saved = readSettings(key) || {};
+  const preferences = pickSettings(saved, defaults);
+  if (mode === "square" && saved.boardSide === undefined && saved.boardWidth !== undefined) {
+    preferences.boardSide = Number(saved.boardWidth);
+  }
+  const sizes = mode === "hex" ? [4, 5, 6] : [6, 9, 12];
+  preferences.boardSide = Number(preferences.boardSide);
+  if (!sizes.includes(preferences.boardSide)) preferences.boardSide = defaults.boardSide;
+  if (mode === "square") preferences.twoPlayerEnabled = false;
+  if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
+    preferences.snapOverlapMultiplier = 1.5;
+  }
+  if (preferences.frequencyVersion !== 2) {
+    for (const setting of Object.values(preferences.pieces)) delete setting.weight;
+    preferences.frequencyVersion = 2;
+  }
+  const global = loadGlobalPreferences();
+  if (Object.keys(saved).length) localStorage.setItem(key, JSON.stringify(preferences));
+  return { ...preferences, ...global };
+}
+
+function savePreferences(preferences, mode = getBoardMode()) {
+  const modeSettings = pickSettings(preferences, defaultModePreferences(mode));
+  if (mode === "square") modeSettings.twoPlayerEnabled = false;
+  localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(modeSettings));
+  localStorage.setItem(CONFIG.globalSettingsKey,
+    JSON.stringify(pickSettings(preferences, defaultGlobalPreferences())));
+}
+
+function resetAllPreferences() {
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(defaultGlobalPreferences()));
+  for (const mode of ["hex", "square"]) {
+    localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
+  }
 }
 
 // Internal migration fields do not affect score mode. Piece overrides only
@@ -1259,6 +1379,9 @@ function isDefaultTimedPreferences(preferences = loadPreferences()) {
 }
 
 Object.assign(window.GenericBlockGame, {
+  getBoardMode,
+  setBoardMode,
+  resetAllPreferences,
   defaultPreferences,
   loadPreferences,
   savePreferences,
@@ -1270,7 +1393,7 @@ Object.assign(window.GenericBlockGame, {
 </script>
   <script>
 (function () {
-const { hexToPixel, HEX_HEIGHT } = window.GenericBlockGame;
+const { hexToPixel, HEX_HEIGHT, getBoardMode } = window.GenericBlockGame;
 // Each piece uses [q, r] hex cells and includes the [0, 0] anchor.
 // Weight controls how often a shape appears: larger numbers appear more often.
 // Add a new object to this array to add a new piece to the game.
@@ -1289,16 +1412,54 @@ const SHAPES = [
   { id: "arc4", weight: 5, cells: [[0,0],[1,0],[1,1],[0,2]] },
 ];
 
+const SQUARE_SHAPES = [
+  { id: "single", cells: [[0,0]] },
+  { id: "line2", cells: [[0,0],[1,0]] },
+  { id: "diagonal2", cells: [[0,0],[1,1]] },
+  { id: "line3", cells: [[0,0],[1,0],[2,0]] },
+  { id: "diagonal3", cells: [[0,0],[1,1],[2,2]] },
+  { id: "line4", cells: [[0,0],[1,0],[2,0],[3,0]] },
+  { id: "line5", cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
+  { id: "square2", cells: [[0,0],[1,0],[0,1],[1,1]] },
+  { id: "corner3", cells: [[0,0],[0,1],[1,1]] },
+  { id: "corner5", cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
+  { id: "t4", cells: [[0,0],[1,0],[2,0],[1,1]] },
+  { id: "s4", cells: [[1,0],[2,0],[0,1],[1,1]] },
+  { id: "z4", cells: [[0,0],[1,0],[1,1],[2,1]] },
+  { id: "plus5", cells: [[1,0],[0,1],[1,1],[2,1],[1,2]] },
+  { id: "u5", cells: [[0,0],[2,0],[0,1],[1,1],[2,1]] },
+].map(shape => {
+  const [anchorQ, anchorR] = shape.cells[0];
+  return { ...shape, weight: 5, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };
+});
+
+function rotationCount(mode = getBoardMode()) {
+  return mode === "hex" ? 6 : 4;
+}
+
+function shapePoint(q, r, mode = getBoardMode()) {
+  return mode === "hex" ? hexToPixel(q, r) : { x: q, y: r };
+}
+
+function cellHeight(mode = getBoardMode()) {
+  return mode === "hex" ? HEX_HEIGHT : 1;
+}
+
 // Looks up a shape stored in the tray by its short ID.
 function shapeById(id) {
   // Fall back safely if a saved tray references a custom piece later deleted.
-  return getAllShapes().find(shape => shape.id === id) || SHAPES[0];
+  const shapes = getAllShapes();
+  return shapes.find(shape => shape.id === id) || shapes[0];
 }
 
 // Combines built-in pieces with pieces created in the settings editor.
 function getAllShapes() {
   const preferences = window.GenericBlockGame.loadPreferences();
-  return [...SHAPES, ...preferences.customPieces];
+  const shapes = getBoardMode() === "hex" ? SHAPES : SQUARE_SHAPES;
+  return [...shapes, ...preferences.customPieces.map(shape => {
+    const [anchorQ, anchorR] = shape.cells[0];
+    return { ...shape, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };
+  })];
 }
 
 // Applies each piece's enabled state and user-selected frequency.
@@ -1316,23 +1477,25 @@ function getConfiguredShapes() {
 
 // Bounds include the whole hex tile, even when a turn gives negative offsets.
 function shapeDimensions(shape) {
-  const centers = shape.cells.map(([q, r]) => hexToPixel(q, r));
+  const tileHeight = cellHeight();
+  const centers = shape.cells.map(([q, r]) => shapePoint(q, r));
   const minX = Math.min(...centers.map(cell => cell.x)) - 0.5;
-  const minY = Math.min(...centers.map(cell => cell.y)) - HEX_HEIGHT / 2;
+  const minY = Math.min(...centers.map(cell => cell.y)) - tileHeight / 2;
   return {
     minX,
     minY,
     width: Math.max(...centers.map(cell => cell.x)) + 0.5 - minX,
-    height: Math.max(...centers.map(cell => cell.y)) + HEX_HEIGHT / 2 - minY,
+    height: Math.max(...centers.map(cell => cell.y)) + tileHeight / 2 - minY,
   };
 }
 
-// Rotate clockwise by 60 degrees around the anchor cell.
+// Rotate around the anchor by one turn of the current grid.
 function rotateShape(shape, turns = 0) {
   let cells = shape.cells.map(([x, y]) => [x, y]);
-  const rotations = ((turns % 6) + 6) % 6;
+  const count = rotationCount();
+  const rotations = ((turns % count) + count) % count;
   for (let turn = 0; turn < rotations; turn += 1) {
-    cells = cells.map(([q, r]) => [-r, q + r]);
+    cells = cells.map(([q, r]) => count === 6 ? [-r, q + r] : [-r, q]);
   }
   return { ...shape, cells };
 }
@@ -1354,6 +1517,10 @@ function randomShape() {
 
 Object.assign(window.GenericBlockGame, {
   SHAPES,
+  SQUARE_SHAPES,
+  rotationCount,
+  shapePoint,
+  cellHeight,
   getAllShapes,
   getConfiguredShapes,
   shapeById,
@@ -1366,10 +1533,18 @@ Object.assign(window.GenericBlockGame, {
 </script>
   <script>
 (function () {
-const { hexKey, hexDistance } = window.GenericBlockGame;
+const { hexKey, hexDistance, hexToPixel, pixelToHex, boardDimensions, getBoardMode } = window.GenericBlockGame;
 
 // Store only cells that belong to the hexagon.
-function createEmptyBoard(side = 5) {
+function createEmptyBoard(side, mode = getBoardMode()) {
+  side ??= mode === "hex" ? 5 : 9;
+  if (mode === "square") {
+    const cells = {};
+    for (let r = 0; r < side; r += 1) {
+      for (let q = 0; q < side; q += 1) cells[hexKey(q, r)] = 0;
+    }
+    return { type: "square", size: side, cells };
+  }
   const radius = side - 1;
   const cells = {};
   for (let r = -radius; r <= radius; r += 1) {
@@ -1377,11 +1552,37 @@ function createEmptyBoard(side = 5) {
       if (hexDistance(q, r) <= radius) cells[hexKey(q, r)] = 0;
     }
   }
-  return { radius, cells };
+  return { type: "hex", radius, cells };
 }
 
 function cloneBoard(board) {
-  return { radius: board.radius, cells: { ...board.cells } };
+  return { ...board, cells: { ...board.cells } };
+}
+
+function getBoardSide(board) {
+  return board.type === "square" ? board.size : board.radius + 1;
+}
+
+function getBoardDimensions(board) {
+  return board.type === "square" ? { width: board.size, height: board.size } : boardDimensions(board.radius + 1);
+}
+
+function boardPoint(board, q, r, cellSize = 1) {
+  if (board.type !== "square") return hexToPixel(q, r, cellSize);
+  const center = (board.size - 1) / 2;
+  return { x: (q - center) * cellSize, y: (r - center) * cellSize };
+}
+
+function boardCellAt(board, x, y, cellSize = 1) {
+  if (board.type !== "square") return pixelToHex(x, y, cellSize);
+  const center = (board.size - 1) / 2;
+  const rawQ = x / cellSize + center;
+  const rawR = y / cellSize + center;
+  return { q: Math.round(rawQ), r: Math.round(rawR), rawQ, rawR };
+}
+
+function placementDistance(board, q, r) {
+  return board.type === "square" ? Math.max(Math.abs(q), Math.abs(r)) : hexDistance(q, r);
 }
 
 function canPlace(board, shape, originQ, originR) {
@@ -1396,12 +1597,25 @@ function canPlaceAnywhere(board, shape) {
   });
 }
 
-function fillShape(board, shape, originQ, originR) {
-  for (const [q, r] of shape.cells) board.cells[hexKey(originQ + q, originR + r)] = 1;
+function fillShape(board, shape, originQ, originR, value = 1) {
+  for (const [q, r] of shape.cells) board.cells[hexKey(originQ + q, originR + r)] = value;
 }
 
 // These centers tile the grid with separate seven-cell hexagons.
 function boardChunks(board) {
+  if (board.type === "square") {
+    const chunks = [];
+    for (let row = 0; row < board.size; row += 3) {
+      for (let col = 0; col < board.size; col += 3) {
+        const cells = [];
+        for (let r = row; r < row + 3; r += 1) {
+          for (let q = col; q < col + 3; q += 1) cells.push(hexKey(q, r));
+        }
+        chunks.push({ center: hexKey(col + 1, row + 1), cells });
+      }
+    }
+    return chunks;
+  }
   const neighbors = [[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
   return Object.keys(board.cells).flatMap(key => {
     const [q, r] = key.split(",").map(Number);
@@ -1416,7 +1630,8 @@ function findCompletedCells(board) {
   const lines = new Map();
   for (const key of Object.keys(board.cells)) {
     const [q, r] = key.split(",").map(Number);
-    for (const [axis, value] of [["q", q], ["r", r], ["s", -q - r]]) {
+    const axes = board.type === "square" ? [["q", q], ["r", r]] : [["q", q], ["r", r], ["s", -q - r]];
+    for (const [axis, value] of axes) {
       const lineKey = `${axis}:${value}`;
       if (!lines.has(lineKey)) lines.set(lineKey, []);
       lines.get(lineKey).push(key);
@@ -1434,7 +1649,7 @@ function findCompletedCells(board) {
   for (const chunk of boardChunks(board)) {
     if (!chunk.cells.every(key => board.cells[key])) continue;
     zoneCount += 1;
-    pointValue += 7;
+    pointValue += chunk.cells.length;
     for (const key of chunk.cells) completed.add(key);
   }
   return { cells: completed, zoneCount, pointValue };
@@ -1446,38 +1661,84 @@ function clearCells(board, completed) {
 
 Object.assign(window.GenericBlockGame, {
   createEmptyBoard, cloneBoard, boardChunks, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
+  getBoardSide, getBoardDimensions, boardPoint, boardCellAt, placementDistance,
 });
 }());
 
 </script>
   <script>
 (function () {
-const { CONFIG, createEmptyBoard } = window.GenericBlockGame;
+function createMatch() {
+  return { player: 0, scores: [0, 0], streaks: [0, 0], placed: 0, consecutivePasses: 0 };
+}
+
+function cloneMatch(match) {
+  return match ? { ...match, scores: [...match.scores], streaks: [...match.streaks] } : null;
+}
+
+function isValidMatch(match) {
+  return match && [0, 1].includes(match.player)
+    && [match.scores, match.streaks].every(values => Array.isArray(values)
+      && values.length === 2 && values.every(value => Number.isSafeInteger(value) && value >= 0))
+    && Number.isSafeInteger(match.placed) && match.placed >= 0
+    && Number.isInteger(match.consecutivePasses) && match.consecutivePasses >= 0 && match.consecutivePasses <= 2;
+}
+
+// Only the player who completes a clear earns its points and streak.
+function recordMatchPlacement(match, completed) {
+  match.placed += 1;
+  const player = match.player;
+  match.streaks[player] = completed.zoneCount ? match.streaks[player] + 1 : 0;
+  const gained = completed.pointValue * completed.zoneCount * match.streaks[player];
+  match.scores[player] += gained;
+  return gained;
+}
+
+// Only a completed tray breaks a run of passes.
+function endMatchTurn(match, passed = false) {
+  match.consecutivePasses = passed ? match.consecutivePasses + 1 : 0;
+  if (match.consecutivePasses >= 2) return true;
+  match.player = 1 - match.player;
+  match.placed = 0;
+  return false;
+}
+
+Object.assign(window.GenericBlockGame, {
+  createMatch, cloneMatch, isValidMatch, recordMatchPlacement, endMatchTurn,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch } = window.GenericBlockGame;
 
 // Reads the saved top score. Missing or invalid values become zero.
-function loadBestScore() {
-  return Number(localStorage.getItem(CONFIG.bestScoreKey)) || 0;
+function loadBestScore(mode = getBoardMode()) {
+  return Number(localStorage.getItem(storageKeys(mode).bestScoreKey)) || 0;
 }
 
-function saveBestScore(score) {
-  localStorage.setItem(CONFIG.bestScoreKey, String(score));
+function saveBestScore(score, mode = getBoardMode()) {
+  localStorage.setItem(storageKeys(mode).bestScoreKey, String(score));
 }
 
-function loadModifiedBestScore() {
-  return Number(localStorage.getItem(CONFIG.modifiedBestScoreKey)) || 0;
+function loadModifiedBestScore(mode = getBoardMode()) {
+  return Number(localStorage.getItem(storageKeys(mode).modifiedBestScoreKey)) || 0;
 }
 
-function saveModifiedBestScore(score) {
-  localStorage.setItem(CONFIG.modifiedBestScoreKey, String(score));
+function saveModifiedBestScore(score, mode = getBoardMode()) {
+  localStorage.setItem(storageKeys(mode).modifiedBestScoreKey, String(score));
 }
 
-function loadTimedBestScore(modified = false) {
-  const key = modified ? CONFIG.timedModifiedBestScoreKey : CONFIG.timedBestScoreKey;
+function loadTimedBestScore(modified = false, mode = getBoardMode()) {
+  const keys = storageKeys(mode);
+  const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
   return Number(localStorage.getItem(key)) || 0;
 }
 
-function saveTimedBestScore(score, modified = false) {
-  const key = modified ? CONFIG.timedModifiedBestScoreKey : CONFIG.timedBestScoreKey;
+function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
+  const keys = storageKeys(mode);
+  const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
   localStorage.setItem(key, String(score));
 }
 
@@ -1488,28 +1749,77 @@ function saveGame(state) {
     history: state.history.slice(-8),
   };
 
-  localStorage.setItem(CONFIG.storageKey, JSON.stringify(saved));
+  const keys = storageKeys(state.board.type || "hex");
+  const key = state.match ? CONFIG.twoPlayerStorageKey : keys.storageKey;
+  localStorage.setItem(key, JSON.stringify(saved));
 }
 
-// Hex saves use their own key, leaving square games intact.
-function loadGame() {
+function restoreBoard(board, mode) {
+  if (mode === "square" && Array.isArray(board)) {
+    const converted = createEmptyBoard(board.length, "square");
+    if (!board.every(row => Array.isArray(row) && row.length === board.length)) return null;
+    for (const [r, row] of board.entries()) {
+      for (const [q, value] of row.entries()) converted.cells[`${q},${r}`] = value;
+    }
+    return converted;
+  }
+  return board ? { ...board, type: board.type || mode } : null;
+}
+
+// Restore each board's own game. Square mode never loads a match.
+function loadGame(twoPlayer = false, mode = getBoardMode()) {
+  if (twoPlayer && mode !== "hex") return null;
   try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.storageKey));
+    const key = twoPlayer ? CONFIG.twoPlayerStorageKey : storageKeys(mode).storageKey;
+    const saved = JSON.parse(localStorage.getItem(key));
 
-    const radius = saved?.board?.radius;
-    if (![3, 4, 5].includes(radius)) return null;
-    const expectedCells = Object.keys(createEmptyBoard(radius + 1).cells);
-    const cells = saved.board.cells;
+    // Keep games and Undo states saved before the pass rule changed.
+    if (twoPlayer) {
+      for (const entry of [saved, ...(saved?.history || [])]) {
+        if (entry?.match && entry.match.consecutivePasses === undefined) {
+          entry.match.consecutivePasses = entry.match.emptyPasses;
+          delete entry.match.emptyPasses;
+        }
+      }
+    }
+    if (twoPlayer ? !isValidMatch(saved?.match) : saved?.match) return null;
+
+    const board = restoreBoard(saved?.board, mode);
+    if (!board || board.type !== mode) return null;
+    const size = mode === "hex" ? board.radius + 1 : board.size;
+    if (!(mode === "hex" ? [4, 5, 6] : [6, 9, 12]).includes(size)) return null;
+    const expectedCells = Object.keys(createEmptyBoard(size, mode).cells);
+    const cells = board.cells;
     if (!cells || Object.keys(cells).length !== expectedCells.length
-      || !expectedCells.every(key => cells[key] === 0 || cells[key] === 1)) return null;
+      || !expectedCells.every(key => cells[key] === 0 || cells[key] === 1
+        || (twoPlayer && cells[key] === 2))) return null;
 
+    saved.board = board;
+    for (const entry of saved.history || []) entry.board = restoreBoard(entry.board, mode);
     return saved;
   } catch {
     return null;
   }
 }
 
+function resetAllScores() {
+  for (const mode of ["hex", "square"]) {
+    saveBestScore(0, mode);
+    saveModifiedBestScore(0, mode);
+    saveTimedBestScore(0, false, mode);
+    saveTimedBestScore(0, true, mode);
+  }
+}
+
+function resetSavedGames() {
+  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey, CONFIG.twoPlayerStorageKey]) {
+    localStorage.setItem(key, "null");
+  }
+}
+
 Object.assign(window.GenericBlockGame, {
+  resetAllScores,
+  resetSavedGames,
   loadBestScore,
   saveBestScore,
   loadModifiedBestScore,
@@ -1527,18 +1837,29 @@ Object.assign(window.GenericBlockGame, {
 const {
   CONFIG, shapeById, shapeDimensions, rotateShape, createEmptyBoard, boardChunks,
   hexKey, hexToPixel, boardDimensions, HEX_HEIGHT,
+  getBoardMode, getBoardDimensions, shapePoint, cellHeight,
 } = window.GenericBlockGame;
 const boardCells = new Map();
 
 // Shared DOM references are kept together so game logic stays readable.
 const elements = {
   board: document.querySelector("#board"),
+  boardLabel: document.querySelector("#boardLabel"),
   tray: document.querySelector("#tray"),
   score: document.querySelector("#score"),
   timerDisplay: document.querySelector("#timerDisplay"),
   bestScore: document.querySelector("#bestScore"),
   bestScoreLabel: document.querySelector("#bestScoreLabel"),
   undoButton: document.querySelector("#undoButton"),
+  passButton: document.querySelector("#passButton"),
+  soloScore: document.querySelector("#soloScore"),
+  bestScorePanel: document.querySelector("#bestScorePanel"),
+  matchScoreboard: document.querySelector("#matchScoreboard"),
+  redScore: document.querySelector("#redScore"),
+  blueScore: document.querySelector("#blueScore"),
+  redPlayer: document.querySelector("#redPlayer"),
+  bluePlayer: document.querySelector("#bluePlayer"),
+  turnStatus: document.querySelector("#turnStatus"),
   resetButton: document.querySelector("#resetButton"),
   settingsButton: document.querySelector("#settingsButton"),
   fullscreenButton: document.querySelector("#fullscreenButton"),
@@ -1548,13 +1869,14 @@ const elements = {
   modalScore: document.querySelector("#modalScore"),
   modalButton: document.querySelector("#modalButton"),
   modalUndoButton: document.querySelector("#modalUndoButton"),
+  modalCancelButton: document.querySelector("#modalCancelButton"),
   dragLayer: document.querySelector("#dragLayer"),
   scoreBurst: document.querySelector("#scoreBurst"),
 };
 
 // Place cell centers on the hex grid, with no square cells behind the board.
 function buildHexGrid(container, side, makeCell) {
-  const board = createEmptyBoard(side);
+  const board = createEmptyBoard(side, "hex");
   const { width, height } = boardDimensions(side);
   const fragment = document.createDocumentFragment();
   container.style.aspectRatio = `${width} / ${height}`;
@@ -1571,20 +1893,45 @@ function buildHexGrid(container, side, makeCell) {
   container.replaceChildren(fragment);
 }
 
+function buildSquareGrid(container, size, makeCell) {
+  const fragment = document.createDocumentFragment();
+  container.style.aspectRatio = "1";
+  for (let r = 0; r < size; r += 1) {
+    for (let q = 0; q < size; q += 1) {
+      const cell = makeCell(q, r, hexKey(q, r));
+      cell.style.left = `${q / size * 100}%`;
+      cell.style.top = `${r / size * 100}%`;
+      cell.style.width = `${100 / size}%`;
+      cell.style.height = `${100 / size}%`;
+      fragment.append(cell);
+    }
+  }
+  container.replaceChildren(fragment);
+}
+
 function buildBoard(side) {
   boardCells.clear();
   const board = createEmptyBoard(side);
-  buildHexGrid(elements.board, side, (q, r, key) => {
+  const square = board.type === "square";
+  document.body.classList.toggle("square-mode", square);
+  elements.boardLabel.textContent = square ? "Square" : "Hex";
+  document.querySelector(".game-shell").setAttribute("aria-label", `${square ? "Square" : "Hex"} block puzzle game`);
+  elements.modalText.textContent = square
+    ? "Fit square pieces. Clear full rows, columns, or outlined 3 by 3 groups."
+    : "Fit hex pieces. Clear full lines in three directions or an outlined seven-hex group. Edge cells outside the groups clear through lines.";
+  const build = square ? buildSquareGrid : buildHexGrid;
+  build(elements.board, side, (q, r, key) => {
     const cell = document.createElement("div");
     cell.className = "cell";
     cell.dataset.q = q;
     cell.dataset.r = r;
     cell.setAttribute("role", "gridcell");
-    cell.setAttribute("aria-label", `Hex ${q}, ${r}`);
+    cell.setAttribute("aria-label", `${square ? "Square" : "Hex"} ${q}, ${r}`);
     boardCells.set(key, cell);
     return cell;
   });
-  elements.board.setAttribute("aria-label", `Hexagon board, ${side} cells per edge, ${boardCells.size} cells`);
+  elements.board.setAttribute("aria-label", square ? `Square board, ${side} by ${side}, ${boardCells.size} cells`
+    : `Hexagon board, ${side} cells per edge, ${boardCells.size} cells`);
   drawChunkOutlines(board, side);
 }
 
@@ -1592,7 +1939,7 @@ function buildBoard(side) {
 function drawChunkOutlines(board, side) {
   const svgNS = "http://www.w3.org/2000/svg";
   const overlay = document.createElementNS(svgNS, "svg");
-  const { width, height } = boardDimensions(side);
+  const { width, height } = getBoardDimensions(board);
   overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
   overlay.setAttribute("class", "chunk-outlines");
   overlay.setAttribute("aria-hidden", "true");
@@ -1600,6 +1947,18 @@ function drawChunkOutlines(board, side) {
   const chunks = boardChunks(board);
   chunks.forEach((chunk, index) => {
     const members = new Set(chunk.cells);
+    if (board.type === "square") {
+      for (const key of chunk.cells) {
+        boardCells.get(key).dataset.chunk = chunk.center;
+        boardCells.get(key).classList.add(index % 2 ? "chunk-tint-a" : "chunk-tint-b");
+      }
+      const [q, r] = chunk.center.split(",").map(Number);
+      const outline = document.createElementNS(svgNS, "path");
+      outline.dataset.center = chunk.center;
+      outline.setAttribute("d", `M${q - 1},${r - 1}h3v3h-3Z`);
+      overlay.append(outline);
+      return;
+    }
     let path = "";
     for (const key of chunk.cells) {
       boardCells.get(key).dataset.chunk = chunk.center;
@@ -1629,21 +1988,22 @@ function drawChunkOutlines(board, side) {
 // Creates a visual piece at either tray size or full board-cell size.
 function makePiece(shape, cellSize) {
   const { width, height, minX, minY } = shapeDimensions(shape);
+  const tileHeight = cellHeight();
   const piece = document.createElement("div");
   piece.className = "piece";
   piece.style.width = `${width * cellSize}px`;
   piece.style.height = `${height * cellSize}px`;
 
   for (const [q, r] of shape.cells) {
-    const center = hexToPixel(q, r);
+    const center = shapePoint(q, r);
     const cell = document.createElement("i");
     cell.className = "piece-cell";
     cell.dataset.shapeQ = q;
     cell.dataset.shapeR = r;
     cell.style.left = `${(center.x - minX - 0.5) * cellSize}px`;
-    cell.style.top = `${(center.y - minY - HEX_HEIGHT / 2) * cellSize}px`;
+    cell.style.top = `${(center.y - minY - tileHeight / 2) * cellSize}px`;
     cell.style.width = `${cellSize}px`;
-    cell.style.height = `${HEX_HEIGHT * cellSize}px`;
+    cell.style.height = `${tileHeight * cellSize}px`;
     piece.append(cell);
   }
 
@@ -1655,6 +2015,8 @@ function makePiece(shape, cellSize) {
 function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointerDown) {
   boardCells.forEach((cell, key) => {
     cell.classList.toggle("filled", Boolean(state.board.cells[key]));
+    cell.dataset.player = state.match && state.board.cells[key]
+      ? (state.board.cells[key] === 1 ? "red" : "blue") : "";
     cell.classList.remove("preview-valid", "preview-invalid", "preview-clear", "clearing");
   });
 
@@ -1688,6 +2050,20 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
   elements.bestScore.textContent = bestScore.toLocaleString();
   elements.bestScoreLabel.textContent = bestScoreLabel;
   elements.undoButton.disabled = state.history.length === 0;
+  elements.soloScore.hidden = Boolean(state.match);
+  elements.bestScorePanel.hidden = Boolean(state.match);
+  elements.matchScoreboard.hidden = !state.match;
+  if (state.match) {
+    elements.redScore.textContent = state.match.scores[0].toLocaleString();
+    elements.blueScore.textContent = state.match.scores[1].toLocaleString();
+    elements.redPlayer.classList.toggle("active-player", state.match.player === 0 && !state.gameOver);
+    elements.bluePlayer.classList.toggle("active-player", state.match.player === 1 && !state.gameOver);
+    const player = state.match.player === 0 ? "Red" : "Blue";
+    const noMoves = state.tray.some(item => !item.used)
+      && !state.tray.some(item => !item.used && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+    elements.turnStatus.textContent = state.gameOver ? "Both players passed in a row."
+      : `${player}'s turn${noMoves ? ". No pieces fit. Pass to end your turn." : ""}`;
+  }
   delete state.restoredTrayItemUid;
 }
 
@@ -1749,22 +2125,26 @@ function showModal(title, text, buttonText, options = {}) {
   elements.modalText.textContent = text;
   elements.modalButton.textContent = buttonText;
   elements.modal.classList.toggle("game-over-modal", Boolean(options.gameOver));
-  elements.modalScore.hidden = !options.gameOver;
+  elements.modalScore.hidden = !options.gameOver || Boolean(options.match);
   elements.modalScore.textContent = Number(options.score || 0).toLocaleString();
   elements.modalUndoButton.hidden = !options.showUndo;
+  elements.modalCancelButton.hidden = !options.showCancel;
   elements.modal.classList.add("is-open");
+  if (options.showCancel) elements.modalCancelButton.focus();
 }
 
 function hideModal() {
   elements.modal.classList.remove("is-open");
   elements.modal.classList.remove("game-over-modal");
   elements.modalUndoButton.hidden = true;
+  elements.modalCancelButton.hidden = true;
 }
 
 Object.assign(window.GenericBlockGame, {
   elements,
   buildBoard,
   buildHexGrid,
+  buildSquareGrid,
   makePiece,
   renderGame,
   renderPreview,
@@ -1779,21 +2159,25 @@ Object.assign(window.GenericBlockGame, {
   <script>
 (function () {
 const {
-  CONFIG,
-  SHAPES,
-  defaultPreferences,
+  getBoardMode,
+  resetAllPreferences,
+  rotationCount,
+  rotateShape,
   getAllShapes,
   loadPreferences,
   savePreferences,
   shapeDimensions,
   makePiece,
   buildHexGrid,
+  buildSquareGrid,
 } = window.GenericBlockGame;
 
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
+const boardTypeSetting = document.querySelector("#boardTypeSetting");
+const boardSettingsContent = document.querySelector("#boardSettingsContent");
 const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetting");
 const timeTrialDurationRow = document.querySelector("#timeTrialDurationRow");
 const dragInitialOffsetSetting = document.querySelector("#dragInitialOffsetSetting");
@@ -1913,11 +2297,15 @@ function removeCustomPiece(id) {
 }
 
 function buildEditor() {
-  buildHexGrid(editor, 3, (q, r, key) => {
+  const square = getBoardMode() === "square";
+  const build = square ? buildSquareGrid : buildHexGrid;
+  editor.classList.toggle("square-editor", square);
+  document.querySelector("#pieceEditorHint").textContent = `Select ${square ? "square" : "hex"} cells to make a piece.`;
+  build(editor, square ? 5 : 3, (q, r, key) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.cell = key;
-    button.setAttribute("aria-label", `Editor hex ${q}, ${r}`);
+    button.setAttribute("aria-label", `Editor ${square ? "square" : "hex"} ${q}, ${r}`);
     button.setAttribute("aria-pressed", "false");
     button.addEventListener("click", () => {
       selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
@@ -1952,12 +2340,10 @@ function layoutKey(cells) {
 
 // Checks every rotation, so a sideways copy also counts as an existing piece.
 function pieceAlreadyExists(cells) {
-  let rotatedCells = cells.map(([x, y]) => [x, y]);
   const candidateKeys = new Set();
 
-  for (let turn = 0; turn < 6; turn += 1) {
-    candidateKeys.add(layoutKey(rotatedCells));
-    rotatedCells = rotatedCells.map(([q, r]) => [-r, q + r]);
+  for (let turn = 0; turn < rotationCount(); turn += 1) {
+    candidateKeys.add(layoutKey(rotateShape({ cells }, turn).cells));
   }
 
   return getAllShapes().some(shape => candidateKeys.has(layoutKey(shape.cells)));
@@ -1966,7 +2352,7 @@ function pieceAlreadyExists(cells) {
 function saveCustomPiece() {
   const cells = [...selectedCells].map(key => key.split(",").map(Number));
   if (!cells.length) {
-    message.textContent = "Select at least one hex.";
+    message.textContent = "Select at least one cell.";
     return;
   }
   const [anchorQ, anchorR] = cells[0];
@@ -2006,10 +2392,18 @@ function saveAccessibilityAndNotify() {
   callbacks.onAccessibilityChange?.(preferences);
 }
 
-function openSettings() {
+function renderSettings() {
   preferences = loadPreferences();
+  const mode = getBoardMode();
+  boardTypeSetting.style.setProperty("--selected-index", mode === "hex" ? 0 : 1);
+  boardTypeSetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.boardMode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected) boardSettingsContent.setAttribute("aria-labelledby", button.id);
+  });
   undoSetting.checked = preferences.undoEnabled;
-  updateGameModeControl(preferences.timeTrialEnabled);
+  updateGameModeControl();
   timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
   timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
   dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
@@ -2020,7 +2414,13 @@ function openSettings() {
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
   traySizeSetting.value = String(preferences.traySize);
   updateBoardSizeControl(preferences.boardSide);
+  clearEditor();
+  buildEditor();
   renderPieceList();
+}
+
+function openSettings() {
+  renderSettings();
   panel.classList.add("is-open");
   panel.setAttribute("aria-hidden", "false");
 }
@@ -2029,6 +2429,7 @@ function closeSettings() {
   closeResetConfirmation();
   panel.classList.remove("is-open");
   panel.setAttribute("aria-hidden", "true");
+  callbacks.onClose?.();
 }
 
 function clampInteger(value, minimum, maximum) {
@@ -2036,20 +2437,30 @@ function clampInteger(value, minimum, maximum) {
 }
 
 function updateBoardSizeControl(size) {
-  const sizes = [4, 5, 6];
+  const square = getBoardMode() === "square";
+  const sizes = square ? [6, 9, 12] : [4, 5, 6];
+  const label = square ? "Board size" : "Cells per edge";
+  document.querySelector("#boardSizeLabel").textContent = label;
+  boardSizeSetting.setAttribute("aria-label", label);
   const selectedIndex = Math.max(0, sizes.indexOf(size));
   boardSizeSetting.style.setProperty("--selected-index", selectedIndex);
-  boardSizeSetting.querySelectorAll("button").forEach(button => {
+  boardSizeSetting.querySelectorAll("button").forEach((button, index) => {
+    button.dataset.size = sizes[index];
+    button.textContent = square ? `${sizes[index]}×${sizes[index]}` : sizes[index];
     const selected = Number(button.dataset.size) === size;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
 }
 
-function updateGameModeControl(timed) {
-  gameModeSetting.style.setProperty("--selected-index", timed ? 1 : 0);
+function updateGameModeControl() {
+  const square = getBoardMode() === "square";
+  gameModeSetting.querySelector('[data-mode="two-player"]').hidden = square;
+  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 3);
+  const mode = preferences.twoPlayerEnabled ? "two-player" : preferences.timeTrialEnabled ? "timed" : "unlimited";
+  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player"].indexOf(mode));
   gameModeSetting.querySelectorAll("button").forEach(button => {
-    const selected = (button.dataset.mode === "timed") === timed;
+    const selected = button.dataset.mode === mode;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
@@ -2058,8 +2469,8 @@ function updateGameModeControl(timed) {
 function openResetConfirmation(type) {
   pendingReset = type;
   resetConfirmationText.textContent = type === "score"
-    ? "Reset all hex top scores to zero? This cannot be undone."
-    : "Restore every setting, frequency, drag offset, and custom piece to its default?";
+    ? "Reset all Hex and Square top scores to zero? This cannot be undone."
+    : "Restore settings and remove custom pieces for both Hex and Square? This also resets shared accessibility settings and starts fresh games.";
   resetConfirmation.hidden = false;
   resetConfirmation.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -2073,23 +2484,9 @@ function confirmReset() {
   if (pendingReset === "score") {
     callbacks.onResetBest?.();
   } else if (pendingReset === "settings") {
-    preferences = defaultPreferences();
-    savePreferences(preferences);
-    undoSetting.checked = preferences.undoEnabled;
-    updateGameModeControl(preferences.timeTrialEnabled);
-    timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
-    timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
-    dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
-    dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
-    dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
-    pieceHueSetting.value = String(preferences.pieceHue);
-    pieceHueValue.textContent = `${preferences.pieceHue}°`;
-    snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
-    traySizeSetting.value = String(preferences.traySize);
-    updateBoardSizeControl(preferences.boardSide);
-    clearEditor();
-    renderPieceList();
-    callbacks.onChange?.(preferences);
+    resetAllPreferences();
+    callbacks.onResetSettings?.();
+    renderSettings();
   }
   closeResetConfirmation();
 }
@@ -2097,15 +2494,32 @@ function confirmReset() {
 function initSettings(options) {
   callbacks = options;
   buildEditor();
+  boardTypeSetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-board-mode]");
+    if (!button || button.dataset.boardMode === getBoardMode()) return;
+    closeResetConfirmation();
+    callbacks.onBoardChange?.(button.dataset.boardMode);
+    renderSettings();
+  });
+  boardTypeSetting.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const mode = event.key === "Home" ? "hex" : event.key === "End" ? "square"
+      : getBoardMode() === "hex" ? "square" : "hex";
+    const button = boardTypeSetting.querySelector(`[data-board-mode="${mode}"]`);
+    button.click();
+    button.focus();
+  });
   undoSetting.addEventListener("change", () => {
     preferences.undoEnabled = undoSetting.checked;
     saveAndNotify();
   });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");
-    if (!button) return;
+    if (!button || (button.dataset.mode === "two-player" && getBoardMode() === "square")) return;
     preferences.timeTrialEnabled = button.dataset.mode === "timed";
-    updateGameModeControl(preferences.timeTrialEnabled);
+    preferences.twoPlayerEnabled = button.dataset.mode === "two-player";
+    updateGameModeControl();
     timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
     saveAndNotify();
   });
@@ -2186,10 +2600,16 @@ Object.assign(window.GenericBlockGame, { initSettings, openSettings, closeSettin
 const {
   CONFIG,
   cloneBoard,
-  hexToPixel,
-  pixelToHex,
-  hexDistance,
-  boardDimensions,
+  getBoardMode,
+  setBoardMode,
+  getBoardSide,
+  getBoardDimensions,
+  boardPoint,
+  boardCellAt,
+  placementDistance,
+  rotationCount,
+  resetAllScores,
+  resetSavedGames,
   randomShape,
   getConfiguredShapes,
   shapeById,
@@ -2199,6 +2619,10 @@ const {
   canPlaceAnywhere,
   clearCells,
   createEmptyBoard,
+  createMatch,
+  cloneMatch,
+  recordMatchPlacement,
+  endMatchTurn,
   fillShape,
   findCompletedCells,
   loadBestScore,
@@ -2213,7 +2637,7 @@ const {
   buildBoard,
   clearPreview,
   elements,
-  hideModal,
+  hideModal: hideModalView,
   makePiece,
   renderGame,
   renderPreview,
@@ -2225,7 +2649,7 @@ const {
   isDefaultTimedPreferences,
 } = window.GenericBlockGame;
 
-let activeTimed = loadPreferences().timeTrialEnabled;
+let activeTimed = loadPreferences().timeTrialEnabled && !loadPreferences().twoPlayerEnabled;
 let state = createInitialState(activeTimed);
 let bestScore = loadBestScore();
 let modifiedBestScore = loadModifiedBestScore();
@@ -2237,6 +2661,12 @@ let lastTimerTick = 0;
 let pendingClearCells = null;
 let placementPending = false;
 let boardChangeId = 0;
+let modalAction = startNewGame;
+
+function hideModal() {
+  hideModalView();
+  modalAction = startNewGame;
+}
 
 // Creates all mutable values for a completely new game.
 function createInitialState(timed = activeTimed) {
@@ -2250,6 +2680,7 @@ function createInitialState(timed = activeTimed) {
     tray: [],
     history: [],
     gameOver: false,
+    match: preferences.twoPlayerEnabled ? createMatch() : null,
     timedMode: timed,
     timerStarted: false,
     timeRemainingMs: timed ? preferences.timeTrialSeconds * 1000 : null,
@@ -2311,7 +2742,10 @@ function applyPreferences() {
   CONFIG.drag.maxExtraLiftPx = preferences.dragMovingOffset;
   CONFIG.drag.maxHorizontalOffsetPx = preferences.dragHorizontalOffset;
   CONFIG.drag.invalidMoveResistance = Math.max(0, preferences.snapOverlapMultiplier - 1);
-  document.documentElement.style.setProperty("--piece-hue", preferences.pieceHue);
+  document.documentElement.style.setProperty("--piece-hue",
+    state.match ? (state.match.player === 0 ? 0 : 212) : preferences.pieceHue);
+  elements.passButton.hidden = !state.match;
+  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver;
 }
 
 // Any setting change begins a clean run under the newly selected rules.
@@ -2322,11 +2756,35 @@ function restartForSettingsChange() {
   placementPending = false;
   pendingClearCells = null;
   stopTimer();
-  activeTimed = preferences.timeTrialEnabled;
+  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
   state = createInitialState(activeTimed);
   hideModal();
   buildBoard(preferences.boardSide);
   deliverTray();
+}
+
+function refreshBestScores() {
+  bestScore = loadBestScore();
+  modifiedBestScore = loadModifiedBestScore();
+  timedBestScore = loadTimedBestScore(false);
+  timedModifiedBestScore = loadTimedBestScore(true);
+}
+
+function switchBoardMode(mode) {
+  if (mode === getBoardMode()) return;
+  cleanupDrag();
+  stopTimer();
+  boardChangeId += 1;
+  if (pendingClearCells) clearCells(state.board, pendingClearCells);
+  pendingClearCells = null;
+  placementPending = false;
+  if (state.tray.length) saveGame(state);
+  setBoardMode(mode);
+  refreshBestScores();
+  const preferences = loadPreferences();
+  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(false);
 }
 
 // A new tray also becomes the earliest point that Undo may return to.
@@ -2335,11 +2793,12 @@ function deliverTray() {
   state.tray = Array.from({ length: traySize }, (_, index) => ({
     uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
     shapeId: randomShape().id,
-    rotation: Math.floor(Math.random() * 6),
+    rotation: Math.floor(Math.random() * rotationCount()),
     used: false,
   }));
   ensureTrayHasPlaceablePiece();
   state.history = [];
+  state.restoredTrayItemUid = null;
   render();
   elements.tray.classList.add("new-tray");
   window.setTimeout(() => elements.tray.classList.remove("new-tray"), 360);
@@ -2353,7 +2812,7 @@ function getPlaceableTrayItem(index) {
   const pool = enabledShapes.length ? enabledShapes : configuredShapes;
 
   for (const shape of pool) {
-    for (let rotation = 0; rotation < 6; rotation += 1) {
+    for (let rotation = 0; rotation < rotationCount(); rotation += 1) {
       const rotatedShape = rotateShape(shape, rotation);
       if (canPlaceAnywhere(state.board, rotatedShape)) {
         return {
@@ -2387,6 +2846,7 @@ function snapshot() {
     score: state.score,
     streak: state.streak,
     tray: state.tray.map(item => ({ ...item })),
+    match: cloneMatch(state.match),
   };
 }
 
@@ -2398,16 +2858,17 @@ function placePiece(item, shape, originQ, originR) {
     startTimer();
   }
   state.history.push(snapshot());
-  fillShape(state.board, shape, originQ, originR);
+  fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
   item.used = true;
 
   const completed = findCompletedCells(state.board);
+  const matchPoints = state.match ? recordMatchPlacement(state.match, completed) : 0;
   if (completed.zoneCount) {
     state.streak += 1;
 
     // Each line or chunk is worth one point per cell. Multiple clears multiply
     // the clear, while consecutive scoring moves increase the streak.
-    const gained = completed.pointValue * completed.zoneCount * state.streak;
+    const gained = state.match ? matchPoints : completed.pointValue * completed.zoneCount * state.streak;
     state.score += gained;
     // Show the entire newly placed shape before its completed cells animate out.
     pendingClearCells = completed.cells;
@@ -2441,10 +2902,12 @@ function finishPlacement() {
     window.setTimeout(() => {
       if (changeId !== boardChangeId) return;
       placementPending = false;
+      if (state.match) endMatchTurn(state.match);
       deliverTray();
     }, 80);
   } else {
     placementPending = false;
+    applyPreferences();
     checkGameOver();
   }
 }
@@ -2464,6 +2927,7 @@ function undo() {
   state.score = previous.score;
   state.streak = previous.streak;
   state.tray = previous.tray;
+  state.match = cloneMatch(previous.match);
   state.history = remainingHistory;
   state.restoredTrayItemUid = restoredItem?.uid || null;
   state.gameOver = false;
@@ -2478,6 +2942,7 @@ function undo() {
 }
 
 function updateBestScore() {
+  if (state.match) return;
   if (activeTimed && settingsAreModified()) {
     if (state.score > timedModifiedBestScore) {
       timedModifiedBestScore = state.score;
@@ -2500,6 +2965,7 @@ function updateBestScore() {
 }
 
 function checkGameOver() {
+  if (state.match) return;
   const remaining = state.tray.filter(item => !item.used);
   const noMovesRemain = remaining.length
     && remaining.every(item => {
@@ -2522,6 +2988,44 @@ function checkGameOver() {
     },
   );
   saveGame(state);
+}
+
+function showMatchResult() {
+  const [red, blue] = state.match.scores;
+  const result = red === blue ? "It's a draw" : red > blue ? "Red wins" : "Blue wins";
+  modalAction = startNewGame;
+  showModal(result, `Red: ${red.toLocaleString()} points. Blue: ${blue.toLocaleString()} points.`,
+    "Play again", { gameOver: true, match: true });
+}
+
+function passTurn() {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  hideModal();
+  state.gameOver = endMatchTurn(state.match, true);
+  state.history = [];
+  if (state.gameOver) {
+    render();
+    showMatchResult();
+    saveGame(state);
+  } else {
+    deliverTray();
+  }
+}
+
+function requestPass() {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  const canStillPlace = state.tray.some(item => !item.used
+    && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+  if (!canStillPlace) {
+    passTurn();
+    return;
+  }
+  const player = state.match.player === 0 ? "Red" : "Blue";
+  modalAction = passTurn;
+  const endsMatch = state.match.consecutivePasses === 1;
+  showModal(`${player}, pass?`,
+    `You can still place a piece. Discard the rest of this tray and end your turn?${endsMatch ? " This pass will end the game." : ""}`,
+    "Pass", { showCancel: true });
 }
 
 function formatTime(milliseconds) {
@@ -2593,6 +3097,7 @@ function beginDrag(event) {
   if (state.gameOver || placementPending) return;
   if (drag || event.isPrimary === false) return;
   if (event.button !== undefined && event.button !== 0) return;
+  if (elements.modal.classList.contains("is-open")) return;
 
   const slot = event.currentTarget;
   const item = state.tray.find(piece => piece.uid === slot.dataset.uid);
@@ -2608,7 +3113,7 @@ function beginDrag(event) {
 
   const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
   const boardRect = elements.board.getBoundingClientRect();
-  const boardSize = boardDimensions(state.board.radius + 1);
+  const boardSize = getBoardDimensions(state.board);
   const cellSize = boardRect.width / boardSize.width;
   const piece = makePiece(shape, cellSize);
   const { width, height, minX, minY } = shapeDimensions(shape);
@@ -2650,6 +3155,8 @@ function beginDrag(event) {
     valid: false,
   };
 
+  applyPreferences();
+
   updateDrag(event);
   window.addEventListener("pointermove", updateDrag, { passive: false });
   window.addEventListener("pointerup", endDrag);
@@ -2662,13 +3169,14 @@ function liftForPointer(pointerY) {
   const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
   const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
   // Keep the bottom of the board within reach on a short landscape screen.
+  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
   return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
-    ? Math.min(lift, 24)
+    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
     : lift;
 }
 
 function snapDragToCell(boardRect) {
-  const point = hexToPixel(drag.originQ, drag.originR, drag.cellSize);
+  const point = boardPoint(state.board, drag.originQ, drag.originR, drag.cellSize);
   const left = boardRect.left + boardRect.width / 2 + point.x - drag.anchorX;
   const top = boardRect.top + boardRect.height / 2 + point.y - drag.anchorY;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
@@ -2696,11 +3204,11 @@ function updateDrag(event) {
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 
-  // Snap the anchor to the nearest hex center, using all three axes.
+  // Snap the anchor to a cell center in the current grid.
   const boardRect = elements.board.getBoundingClientRect();
   const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
   const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
-  const candidate = pixelToHex(anchorX, anchorY, drag.cellSize);
+  const candidate = boardCellAt(state.board, anchorX, anchorY, drag.cellSize);
   const candidateIsValid = canPlace(
     state.board,
     drag.shape,
@@ -2712,7 +3220,7 @@ function updateDrag(event) {
   // Normal snapping changes at half a cell; resistance extends that boundary.
   if (drag.valid && !candidateIsValid) {
     const resistance = Math.max(0, CONFIG.drag.invalidMoveResistance);
-    const distance = hexDistance(candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
+    const distance = placementDistance(state.board, candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
     const releaseDistance = 0.5 + resistance;
 
     if (distance < releaseDistance) {
@@ -2777,6 +3285,7 @@ function cleanupDrag() {
   elements.dragLayer.replaceChildren();
   clearPreview();
   drag = null;
+  applyPreferences();
 }
 
 function returnDragToTray() {
@@ -2802,12 +3311,15 @@ function returnDragToTray() {
 
 function openResetModal() {
   if (placementPending || drag) return;
+  modalAction = startNewGame;
   showModal(
     activeTimed ? "Restart time trial?" : "Restart game?",
     activeTimed
       ? "Your timed board, score, and countdown will restart."
-      : "Your current board and score will be replaced with a fresh game.",
+      : state.match ? "Restart the board and both scores? Red will start."
+        : "Your current board and score will be replaced with a fresh game.",
     "Restart",
+    { showCancel: true },
   );
 }
 
@@ -2859,9 +3371,17 @@ function updateFullscreenButton() {
 }
 
 elements.undoButton.addEventListener("click", undo);
+elements.passButton.addEventListener("click", requestPass);
 elements.resetButton.addEventListener("click", openResetModal);
 elements.settingsButton.addEventListener("click", openSettings);
-elements.modalButton.addEventListener("click", startNewGame);
+elements.modalButton.addEventListener("click", () => modalAction());
+elements.modalCancelButton.addEventListener("click", () => {
+  hideModal();
+  elements.passButton.focus();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
+});
 elements.modalUndoButton.addEventListener("click", undo);
 elements.fullscreenButton.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", updateFullscreenButton);
@@ -2885,46 +3405,69 @@ if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) 
 
 initSettings({
   onChange: restartForSettingsChange,
+  onBoardChange: switchBoardMode,
+  onClose: () => { if (state.gameOver) showCurrentResult(); },
+  onResetSettings: () => {
+    resetSavedGames();
+    restartForSettingsChange();
+  },
   onAccessibilityChange: applyPreferences,
   onResetBest: () => {
-    bestScore = 0;
-    modifiedBestScore = 0;
-    timedBestScore = 0;
-    timedModifiedBestScore = 0;
-    saveBestScore(0);
-    saveModifiedBestScore(0);
-    saveTimedBestScore(0, false);
-    saveTimedBestScore(0, true);
+    resetAllScores();
+    refreshBestScores();
     elements.bestScore.textContent = "0";
   },
 });
 
-// A saved board is restored only when it belongs to the selected mode.
-const savedState = loadGame();
-if (savedState?.tray?.length && savedState.timedMode === activeTimed) {
-  state = { ...createInitialState(activeTimed), ...savedState };
-  if (savedState.scoringVersion !== 2) {
-    state.streak = 0;
-    state.scoringVersion = 2;
-    saveGame(state);
+function showCurrentResult() {
+  if (state.match) {
+    showMatchResult();
+    return;
   }
-  buildBoard(state.board.radius + 1);
-  render();
-  if (state.gameOver) {
-    showModal(
-      activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
-      `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
-      "Play again",
-      { gameOver: true, score: state.score, showUndo: false },
-    );
-  } else {
-    hideModal();
-    if (state.timerStarted) startTimer();
-  }
-} else {
-  buildBoard(state.board.radius + 1);
-  render();
+  showModal(
+    activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
+    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
+    "Play again",
+    { gameOver: true, score: state.score, showUndo: loadPreferences().undoEnabled && state.history.length > 0 },
+  );
 }
+
+// Each board restores its own saved game when its tab becomes active.
+function restoreCurrentGame(showWelcome) {
+  const preferences = loadPreferences();
+  const savedState = loadGame(Boolean(preferences.twoPlayerEnabled));
+  if (savedState?.tray?.length && savedState.timedMode === activeTimed
+    && getBoardSide(savedState.board) === preferences.boardSide) {
+    state = { ...createInitialState(activeTimed), ...savedState };
+    if (savedState.scoringVersion !== 2) {
+      state.streak = 0;
+      state.scoringVersion = 2;
+      saveGame(state);
+    }
+    buildBoard(getBoardSide(state.board));
+    render();
+    if (state.gameOver) {
+      if (showWelcome) showCurrentResult();
+      else hideModal();
+    } else {
+      hideModal();
+      if (state.tray.every(item => item.used)) {
+        placementPending = true;
+        finishPlacement();
+      }
+      if (state.timerStarted) startTimer();
+    }
+  } else {
+    buildBoard(getBoardSide(state.board));
+    if (showWelcome) render();
+    else {
+      hideModal();
+      deliverTray();
+    }
+  }
+}
+
+restoreCurrentGame(true);
 }());
 
 </script>

@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Two player browser checks</title>
+  <style>
+    body { max-width: 900px; margin: 20px auto; padding: 12px; font: 16px system-ui; }
+    button { min-height: 44px; font: inherit; }
+    iframe { display: block; width: 390px; height: 844px; max-width: 100%; border: 1px solid #888; }
+    .pass { color: #16632b; } .fail { color: #b02020; }
+  </style>
+</head>
+<body>
+  <h1>Two player browser checks</h1>
+  <p>These checks place pieces and press the game buttons in the frame. They use test saves, then restore this origin's game and settings. Run them on a separate local port to keep play sessions apart.</p>
+  <button id="run" type="button">Run checks</button>
+  <p id="summary" aria-live="polite">Ready.</p>
+  <ol id="results"></ol>
+  <iframe id="game" title="Game under test"></iframe>
+  <script src="../config.js"></script>
+  <script src="../hex.js"></script>
+  <script src="../preferences.js"></script>
+  <script src="../shapes.js"></script>
+  <script src="../board.js"></script>
+  <script src="../two-player.js"></script>
+  <script>
+    const api = window.GenericBlockGame;
+    const frame = document.querySelector("#game");
+    const runButton = document.querySelector("#run");
+    const results = document.querySelector("#results");
+    let serial = 0;
+    let currentKey = api.CONFIG.twoPlayerStorageKey;
+    const doc = () => frame.contentDocument;
+    const saved = () => JSON.parse(localStorage.getItem(currentKey));
+    function assert(value, message) { if (!value) throw new Error(message); }
+    async function until(check) {
+      const limit = Date.now() + 4000;
+      while (!check()) {
+        if (Date.now() > limit) throw new Error("Game did not reach the expected state");
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    }
+    async function load(options = {}) {
+      api.setBoardMode("hex");
+      const preferences = api.defaultPreferences();
+      preferences.twoPlayerEnabled = options.solo !== true;
+      preferences.dragInitialOffset = preferences.dragMovingOffset = preferences.dragHorizontalOffset = 0;
+      for (const shape of api.SHAPES) preferences.pieces[shape.id] = { enabled: shape.id === "single" };
+      api.savePreferences(preferences);
+      const match = options.solo ? null : { ...api.createMatch(), ...options.match };
+      currentKey = match ? api.CONFIG.twoPlayerStorageKey : api.CONFIG.storageKey;
+      const tray = (options.shapes || ["single", "single", "single"]).map((shapeId, index) => ({
+        uid: `test-${serial}-${index}`, shapeId, rotation: 0, used: Boolean(options.used),
+      }));
+      localStorage.setItem(currentKey, JSON.stringify({
+        board: options.board || api.createEmptyBoard(), match, tray,
+        history: [], score: 0, streak: 0, scoringVersion: 2,
+        gameOver: options.gameOver || false, timedMode: false,
+        timerStarted: false, timeRemainingMs: null,
+      }));
+      await new Promise(resolve => {
+        frame.onload = resolve;
+        frame.src = `../index.html?check=${++serial}`;
+      });
+    }
+    async function reload() {
+      await new Promise(resolve => {
+        frame.onload = resolve;
+        frame.contentWindow.location.reload();
+      });
+    }
+    async function place(index, q, r) {
+      const win = frame.contentWindow;
+      const slot = doc().querySelectorAll(".tray-slot")[index];
+      const piece = slot.querySelector(".piece").getBoundingClientRect();
+      const cell = doc().querySelector(`.cell[data-q="${q}"][data-r="${r}"]`).getBoundingClientRect();
+      const send = (target, type, x, y) => target.dispatchEvent(new win.PointerEvent(type, {
+        bubbles: true, cancelable: true, pointerId: 1, isPrimary: true,
+        button: 0, clientX: x, clientY: y,
+      }));
+      send(slot, "pointerdown", piece.x + piece.width / 2, piece.y + piece.height / 2);
+      send(win, "pointermove", cell.x + cell.width / 2, cell.y + cell.height / 2);
+      send(win, "pointerup", cell.x + cell.width / 2, cell.y + cell.height / 2);
+      await until(() => !doc().querySelector("#passButton").disabled);
+    }
+    function click(id) { doc().querySelector(`#${id}`).click(); }
+    async function check(name, action) {
+      const row = document.createElement("li");
+      results.append(row);
+      try { await action(); row.className = "pass"; row.textContent = `PASS: ${name}`; }
+      catch (error) { row.className = "fail"; row.textContent = `FAIL: ${name}: ${error.message}`; }
+    }
+    runButton.addEventListener("click", async () => {
+      runButton.disabled = true;
+      results.replaceChildren();
+      document.querySelector("#summary").textContent = "Running checks.";
+      const keys = [api.CONFIG.globalSettingsKey, api.CONFIG.boardModeKey,
+        api.CONFIG.settingsKey, api.CONFIG.storageKey, api.CONFIG.twoPlayerStorageKey,
+        api.CONFIG.bestScoreKey, api.CONFIG.modifiedBestScoreKey];
+      const backup = keys.map(key => [key, localStorage.getItem(key)]);
+      try {
+        await check("Red starts and Pass sits to the right of Undo", async () => {
+          await load();
+          assert(doc().querySelector("#turnStatus").textContent === "Red's turn", "Wrong first turn");
+          assert(doc().querySelector("#passButton").getBoundingClientRect().x
+            > doc().querySelector("#undoButton").getBoundingClientRect().right, "Wrong button order");
+        });
+        await check("A playable tray asks to pass, and Cancel keeps the turn", async () => {
+          click("passButton");
+          assert(doc().querySelector("#modalCancelButton").hidden === false, "No confirmation");
+          click("modalCancelButton");
+          assert(!doc().querySelector("#modal").classList.contains("is-open"), "Cancel did not close");
+          assert(saved().match.player === 0, "Cancel changed player");
+        });
+        await check("A full tray switches to Blue and keeps Red's cell colors", async () => {
+          await place(0, -2, 0); await place(1, 0, 0); await place(2, 2, 0);
+          assert(saved().match.player === 1, "Tray did not switch player");
+          assert(saved().match.placed === 0 && saved().history.length === 0, "Turn did not reset");
+          assert(doc().querySelectorAll('.cell[data-player="red"]').length === 3, "Red cells lost their color");
+          const red = doc().querySelector('.cell[data-player="red"]');
+          const redFill = frame.contentWindow.getComputedStyle(red, "::after").backgroundImage;
+          await place(0, 0, 2);
+          assert(doc().querySelectorAll('.cell[data-player="blue"]').length === 1, "Blue did not place a blue cell");
+          const blue = doc().querySelector('.cell[data-player="blue"]');
+          assert(frame.contentWindow.getComputedStyle(red, "::after").backgroundImage === redFill, "Red changed color on Blue's turn");
+          assert(frame.contentWindow.getComputedStyle(blue, "::after").backgroundImage !== redFill, "Both players have the same color");
+        });
+        await check("Blue earns a clear made from Red's cells, and Undo restores it", async () => {
+          const board = api.createEmptyBoard();
+          for (let q = -4; q <= 4; q += 1) if (q !== 0) board.cells[`${q},0`] = 1;
+          await load({ board, match: { player: 1 } });
+          await place(0, 0, 0);
+          assert(saved().match.scores[0] === 0 && saved().match.scores[1] === 9, "Wrong player scored");
+          assert(Object.values(saved().board.cells).every(value => value === 0), "Line did not clear");
+          click("undoButton");
+          assert(saved().match.scores[1] === 0 && saved().match.placed === 0, "Undo did not restore score");
+          assert(doc().querySelectorAll('.cell[data-player="red"]').length === 8, "Undo did not restore Red's cells");
+        });
+        await check("A blocked tray waits for Pass and skips confirmation", async () => {
+          const board = api.createEmptyBoard();
+          for (const key of Object.keys(board.cells)) board.cells[key] = 1;
+          await load({ board, shapes: ["line5"] });
+          assert(!saved().gameOver, "Blocked board ended before a pass");
+          click("passButton");
+          assert(saved().match.player === 1 && saved().match.consecutivePasses === 1, "Pass did not switch");
+          assert(!doc().querySelector("#modal").classList.contains("is-open"), "Blocked pass asked to confirm");
+        });
+        await check("The pass count survives reload and a second pass ends the match", async () => {
+          await reload();
+          assert(saved().match.consecutivePasses === 1, "Reload lost the first pass");
+          click("passButton");
+          assert(saved().gameOver, "Second pass did not end the match");
+          assert(doc().querySelector("#modalTitle").textContent === "It's a draw", "Wrong draw result");
+          await reload();
+          assert(doc().querySelector("#modalTitle").textContent === "It's a draw", "Reload lost the result");
+        });
+        await check("Passes after partial turns count, including after Undo", async () => {
+          await load();
+          await place(0, 0, 0);
+          click("passButton"); click("modalButton");
+          assert(saved().match.consecutivePasses === 1 && !saved().gameOver, "First partial turn pass did not count");
+          await place(0, 2, 0);
+          assert(saved().match.consecutivePasses === 1, "Placement reset the pass count");
+          click("undoButton");
+          assert(saved().match.consecutivePasses === 1 && saved().match.placed === 0, "Undo lost the pass count");
+          await place(0, 2, 0);
+          click("passButton"); click("modalButton");
+          assert(saved().gameOver && saved().match.consecutivePasses === 2, "Second partial turn pass did not end the match");
+        });
+        await check("A second pass warns that it ends the game even after placing", async () => {
+          await load({ match: { player: 1, consecutivePasses: 1, scores: [7, 9] } });
+          await place(0, 0, 0);
+          click("passButton");
+          assert(doc().querySelector("#modalText").textContent.includes("end the game"), "Missing end warning");
+          click("modalButton");
+          assert(doc().querySelector("#modalTitle").textContent === "Blue wins", "Wrong winner");
+          click("modalButton");
+          await until(() => !saved().gameOver);
+          assert(!saved().gameOver && saved().match.player === 0 && saved().match.scores[1] === 0, "Restart did not reset");
+        });
+        await check("Completing a whole tray breaks the run of passes", async () => {
+          await load({ match: { player: 1, consecutivePasses: 1 } });
+          await place(0, -2, 0); await place(1, 0, 0); await place(2, 2, 0);
+          assert(saved().match.consecutivePasses === 0, "Completed tray did not reset passes");
+          click("passButton"); click("modalButton");
+          assert(!saved().gameOver && saved().match.consecutivePasses === 1, "Pass after a whole tray ended the match");
+        });
+        await check("Both colors and scores survive reload", async () => {
+          const board = api.createEmptyBoard(); board.cells["-2,0"] = 1; board.cells["2,0"] = 2;
+          await load({ board, match: { player: 1, scores: [7, 9], placed: 1 } });
+          await reload();
+          assert(doc().querySelector("#redScore").textContent === "7", "Lost Red score");
+          assert(doc().querySelector("#blueScore").textContent === "9", "Lost Blue score");
+          assert(doc().querySelectorAll('.cell[data-player="blue"]').length === 1, "Lost Blue cell");
+          assert(doc().querySelectorAll('.cell[data-player="red"]').length === 1, "Lost Red cell");
+        });
+        await check("The mode control switches between 2 Player and Unlimited", async () => {
+          click("settingsButton");
+          doc().querySelector('[data-mode="unlimited"]').click();
+          click("settingsCloseButton");
+          assert(doc().querySelector("#passButton").hidden, "Single player still shows Pass");
+          click("settingsButton"); doc().querySelector('[data-mode="two-player"]').click();
+          click("settingsCloseButton");
+          assert(!doc().querySelector("#matchScoreboard").hidden, "Match scoreboard is hidden");
+        });
+        await check("Reload after a full tray switches exactly once", async () => {
+          await load({ used: true, match: { placed: 3 } });
+          await until(() => saved().match.player === 1 && !doc().querySelector("#passButton").disabled);
+          await reload();
+          assert(saved().match.player === 1 && saved().match.placed === 0, "Reload switched the turn twice");
+        });
+        await check("Single player Play again still restarts", async () => {
+          const board = api.createEmptyBoard();
+          for (const key of Object.keys(board.cells)) board.cells[key] = 1;
+          await load({ solo: true, board, gameOver: true });
+          click("modalButton");
+          await until(() => !saved().gameOver);
+          assert(!doc().querySelector("#modal").classList.contains("is-open"), "Play again did not start a game");
+          await load();
+        });
+        await check("Match scores leave solo best scores intact", async () => {
+          for (const key of [api.CONFIG.bestScoreKey, api.CONFIG.modifiedBestScoreKey]) {
+            assert(localStorage.getItem(key) === backup.find(entry => entry[0] === key)[1], "Match changed a best score");
+          }
+        });
+        await check("Tray slots do not cover Undo or Pass on a short desktop", async () => {
+          frame.style.width = "1000px"; frame.style.maxWidth = "none"; frame.style.height = "720px";
+          await until(() => frame.contentWindow.innerWidth === 1000);
+          for (const id of ["undoButton", "passButton"]) {
+            const rect = doc().querySelector(`#${id}`).getBoundingClientRect();
+            const hit = doc().elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+            assert(hit.closest(`#${id}`), `${id} is covered by the tray`);
+          }
+        });
+        await check("Buttons fit a 320 pixel phone view", async () => {
+          frame.style.width = "320px"; frame.style.height = "640px";
+          await until(() => frame.contentWindow.innerWidth === 320);
+          const rect = doc().querySelector("#passButton").getBoundingClientRect();
+          assert(rect.right <= 320 && rect.bottom <= 640, "Pass is outside the view");
+          assert(doc().documentElement.scrollWidth <= 320, "Page overflows sideways");
+        });
+      } finally {
+        for (const [key, value] of backup) {
+          if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value);
+        }
+        const failed = results.querySelectorAll(".fail").length;
+        document.querySelector("#summary").textContent = `${results.children.length - failed} passed, ${failed} failed. Saves restored.`;
+        runButton.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

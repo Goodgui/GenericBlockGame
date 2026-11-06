@@ -1,44 +1,103 @@
 (function () {
-const { CONFIG } = window.GenericBlockGame;
+const { CONFIG, storageKeys } = window.GenericBlockGame;
 
-function defaultPreferences() {
+function getBoardMode() {
+  return localStorage.getItem(CONFIG.boardModeKey) === "square" ? "square" : "hex";
+}
+
+function setBoardMode(mode) {
+  if (mode === "hex" || mode === "square") localStorage.setItem(CONFIG.boardModeKey, mode);
+}
+
+function defaultGlobalPreferences() {
+  return { dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
+}
+
+function defaultModePreferences(mode = getBoardMode()) {
   return {
     undoEnabled: true,
     pieces: {},
     customPieces: [],
     frequencyVersion: 2,
-    dragInitialOffset: 110,
-    dragMovingOffset: 110,
-    dragHorizontalOffset: 110,
-    pieceHue: 212,
-    snapOverlapMultiplier: 2.0,
+    boardSettingsVersion: 1,
+    snapOverlapMultiplier: mode === "hex" ? 1.5 : 2.0,
     traySize: 3,
-    boardSide: 5,
+    boardSide: mode === "hex" ? 5 : 9,
     timeTrialEnabled: false,
+    twoPlayerEnabled: false,
     timeTrialSeconds: 180,
   };
 }
 
-function loadPreferences() {
+function defaultPreferences(mode = getBoardMode()) {
+  return { ...defaultModePreferences(mode), ...defaultGlobalPreferences() };
+}
+
+function readSettings(key) {
   try {
-    const saved = JSON.parse(localStorage.getItem(CONFIG.settingsKey));
-    const preferences = { ...defaultPreferences(), ...saved };
-    if (![4, 5, 6].includes(Number(preferences.boardSide))) {
-      preferences.boardSide = 5;
-    }
-    if (preferences.frequencyVersion !== 2) {
-      for (const setting of Object.values(preferences.pieces || {})) delete setting.weight;
-      preferences.frequencyVersion = 2;
-      localStorage.setItem(CONFIG.settingsKey, JSON.stringify(preferences));
-    }
-    return preferences;
+    const saved = JSON.parse(localStorage.getItem(key));
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null;
   } catch {
-    return defaultPreferences();
+    return null;
   }
 }
 
-function savePreferences(preferences) {
-  localStorage.setItem(CONFIG.settingsKey, JSON.stringify(preferences));
+function pickSettings(source, defaults) {
+  return Object.fromEntries(Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]]));
+}
+
+function loadGlobalPreferences() {
+  const defaults = defaultGlobalPreferences();
+  const saved = readSettings(CONFIG.globalSettingsKey);
+  if (saved) return pickSettings(saved, defaults);
+  const legacy = readSettings(storageKeys(getBoardMode()).settingsKey)
+    || readSettings(storageKeys(getBoardMode() === "hex" ? "square" : "hex").settingsKey) || {};
+  const global = pickSettings(legacy, defaults);
+  // Replace the old offset defaults while keeping custom values.
+  for (const key of ["dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset"]) {
+    if (global[key] === 110) global[key] = defaults[key];
+  }
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(global));
+  return global;
+}
+
+function loadPreferences(mode = getBoardMode()) {
+  const defaults = defaultModePreferences(mode);
+  const key = storageKeys(mode).settingsKey;
+  const saved = readSettings(key) || {};
+  const preferences = pickSettings(saved, defaults);
+  if (mode === "square" && saved.boardSide === undefined && saved.boardWidth !== undefined) {
+    preferences.boardSide = Number(saved.boardWidth);
+  }
+  const sizes = mode === "hex" ? [4, 5, 6] : [6, 9, 12];
+  preferences.boardSide = Number(preferences.boardSide);
+  if (!sizes.includes(preferences.boardSide)) preferences.boardSide = defaults.boardSide;
+  if (mode === "square") preferences.twoPlayerEnabled = false;
+  if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
+    preferences.snapOverlapMultiplier = 1.5;
+  }
+  if (preferences.frequencyVersion !== 2) {
+    for (const setting of Object.values(preferences.pieces)) delete setting.weight;
+    preferences.frequencyVersion = 2;
+  }
+  const global = loadGlobalPreferences();
+  if (Object.keys(saved).length) localStorage.setItem(key, JSON.stringify(preferences));
+  return { ...preferences, ...global };
+}
+
+function savePreferences(preferences, mode = getBoardMode()) {
+  const modeSettings = pickSettings(preferences, defaultModePreferences(mode));
+  if (mode === "square") modeSettings.twoPlayerEnabled = false;
+  localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(modeSettings));
+  localStorage.setItem(CONFIG.globalSettingsKey,
+    JSON.stringify(pickSettings(preferences, defaultGlobalPreferences())));
+}
+
+function resetAllPreferences() {
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(defaultGlobalPreferences()));
+  for (const mode of ["hex", "square"]) {
+    localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
+  }
 }
 
 // Internal migration fields do not affect score mode. Piece overrides only
@@ -65,6 +124,9 @@ function isDefaultTimedPreferences(preferences = loadPreferences()) {
 }
 
 Object.assign(window.GenericBlockGame, {
+  getBoardMode,
+  setBoardMode,
+  resetAllPreferences,
   defaultPreferences,
   loadPreferences,
   savePreferences,

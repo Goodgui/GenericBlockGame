@@ -4,10 +4,16 @@
 const {
   CONFIG,
   cloneBoard,
-  hexToPixel,
-  pixelToHex,
-  hexDistance,
-  boardDimensions,
+  getBoardMode,
+  setBoardMode,
+  getBoardSide,
+  getBoardDimensions,
+  boardPoint,
+  boardCellAt,
+  placementDistance,
+  rotationCount,
+  resetAllScores,
+  resetSavedGames,
   randomShape,
   getConfiguredShapes,
   shapeById,
@@ -17,6 +23,10 @@ const {
   canPlaceAnywhere,
   clearCells,
   createEmptyBoard,
+  createMatch,
+  cloneMatch,
+  recordMatchPlacement,
+  endMatchTurn,
   fillShape,
   findCompletedCells,
   loadBestScore,
@@ -31,7 +41,7 @@ const {
   buildBoard,
   clearPreview,
   elements,
-  hideModal,
+  hideModal: hideModalView,
   makePiece,
   renderGame,
   renderPreview,
@@ -43,7 +53,7 @@ const {
   isDefaultTimedPreferences,
 } = window.GenericBlockGame;
 
-let activeTimed = loadPreferences().timeTrialEnabled;
+let activeTimed = loadPreferences().timeTrialEnabled && !loadPreferences().twoPlayerEnabled;
 let state = createInitialState(activeTimed);
 let bestScore = loadBestScore();
 let modifiedBestScore = loadModifiedBestScore();
@@ -55,6 +65,12 @@ let lastTimerTick = 0;
 let pendingClearCells = null;
 let placementPending = false;
 let boardChangeId = 0;
+let modalAction = startNewGame;
+
+function hideModal() {
+  hideModalView();
+  modalAction = startNewGame;
+}
 
 // Creates all mutable values for a completely new game.
 function createInitialState(timed = activeTimed) {
@@ -68,6 +84,7 @@ function createInitialState(timed = activeTimed) {
     tray: [],
     history: [],
     gameOver: false,
+    match: preferences.twoPlayerEnabled ? createMatch() : null,
     timedMode: timed,
     timerStarted: false,
     timeRemainingMs: timed ? preferences.timeTrialSeconds * 1000 : null,
@@ -129,7 +146,10 @@ function applyPreferences() {
   CONFIG.drag.maxExtraLiftPx = preferences.dragMovingOffset;
   CONFIG.drag.maxHorizontalOffsetPx = preferences.dragHorizontalOffset;
   CONFIG.drag.invalidMoveResistance = Math.max(0, preferences.snapOverlapMultiplier - 1);
-  document.documentElement.style.setProperty("--piece-hue", preferences.pieceHue);
+  document.documentElement.style.setProperty("--piece-hue",
+    state.match ? (state.match.player === 0 ? 0 : 212) : preferences.pieceHue);
+  elements.passButton.hidden = !state.match;
+  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver;
 }
 
 // Any setting change begins a clean run under the newly selected rules.
@@ -140,11 +160,35 @@ function restartForSettingsChange() {
   placementPending = false;
   pendingClearCells = null;
   stopTimer();
-  activeTimed = preferences.timeTrialEnabled;
+  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
   state = createInitialState(activeTimed);
   hideModal();
   buildBoard(preferences.boardSide);
   deliverTray();
+}
+
+function refreshBestScores() {
+  bestScore = loadBestScore();
+  modifiedBestScore = loadModifiedBestScore();
+  timedBestScore = loadTimedBestScore(false);
+  timedModifiedBestScore = loadTimedBestScore(true);
+}
+
+function switchBoardMode(mode) {
+  if (mode === getBoardMode()) return;
+  cleanupDrag();
+  stopTimer();
+  boardChangeId += 1;
+  if (pendingClearCells) clearCells(state.board, pendingClearCells);
+  pendingClearCells = null;
+  placementPending = false;
+  if (state.tray.length) saveGame(state);
+  setBoardMode(mode);
+  refreshBestScores();
+  const preferences = loadPreferences();
+  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(false);
 }
 
 // A new tray also becomes the earliest point that Undo may return to.
@@ -153,11 +197,12 @@ function deliverTray() {
   state.tray = Array.from({ length: traySize }, (_, index) => ({
     uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
     shapeId: randomShape().id,
-    rotation: Math.floor(Math.random() * 6),
+    rotation: Math.floor(Math.random() * rotationCount()),
     used: false,
   }));
   ensureTrayHasPlaceablePiece();
   state.history = [];
+  state.restoredTrayItemUid = null;
   render();
   elements.tray.classList.add("new-tray");
   window.setTimeout(() => elements.tray.classList.remove("new-tray"), 360);
@@ -171,7 +216,7 @@ function getPlaceableTrayItem(index) {
   const pool = enabledShapes.length ? enabledShapes : configuredShapes;
 
   for (const shape of pool) {
-    for (let rotation = 0; rotation < 6; rotation += 1) {
+    for (let rotation = 0; rotation < rotationCount(); rotation += 1) {
       const rotatedShape = rotateShape(shape, rotation);
       if (canPlaceAnywhere(state.board, rotatedShape)) {
         return {
@@ -205,6 +250,7 @@ function snapshot() {
     score: state.score,
     streak: state.streak,
     tray: state.tray.map(item => ({ ...item })),
+    match: cloneMatch(state.match),
   };
 }
 
@@ -216,16 +262,17 @@ function placePiece(item, shape, originQ, originR) {
     startTimer();
   }
   state.history.push(snapshot());
-  fillShape(state.board, shape, originQ, originR);
+  fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
   item.used = true;
 
   const completed = findCompletedCells(state.board);
+  const matchPoints = state.match ? recordMatchPlacement(state.match, completed) : 0;
   if (completed.zoneCount) {
     state.streak += 1;
 
     // Each line or chunk is worth one point per cell. Multiple clears multiply
     // the clear, while consecutive scoring moves increase the streak.
-    const gained = completed.pointValue * completed.zoneCount * state.streak;
+    const gained = state.match ? matchPoints : completed.pointValue * completed.zoneCount * state.streak;
     state.score += gained;
     // Show the entire newly placed shape before its completed cells animate out.
     pendingClearCells = completed.cells;
@@ -259,10 +306,12 @@ function finishPlacement() {
     window.setTimeout(() => {
       if (changeId !== boardChangeId) return;
       placementPending = false;
+      if (state.match) endMatchTurn(state.match);
       deliverTray();
     }, 80);
   } else {
     placementPending = false;
+    applyPreferences();
     checkGameOver();
   }
 }
@@ -282,6 +331,7 @@ function undo() {
   state.score = previous.score;
   state.streak = previous.streak;
   state.tray = previous.tray;
+  state.match = cloneMatch(previous.match);
   state.history = remainingHistory;
   state.restoredTrayItemUid = restoredItem?.uid || null;
   state.gameOver = false;
@@ -296,6 +346,7 @@ function undo() {
 }
 
 function updateBestScore() {
+  if (state.match) return;
   if (activeTimed && settingsAreModified()) {
     if (state.score > timedModifiedBestScore) {
       timedModifiedBestScore = state.score;
@@ -318,6 +369,7 @@ function updateBestScore() {
 }
 
 function checkGameOver() {
+  if (state.match) return;
   const remaining = state.tray.filter(item => !item.used);
   const noMovesRemain = remaining.length
     && remaining.every(item => {
@@ -340,6 +392,44 @@ function checkGameOver() {
     },
   );
   saveGame(state);
+}
+
+function showMatchResult() {
+  const [red, blue] = state.match.scores;
+  const result = red === blue ? "It's a draw" : red > blue ? "Red wins" : "Blue wins";
+  modalAction = startNewGame;
+  showModal(result, `Red: ${red.toLocaleString()} points. Blue: ${blue.toLocaleString()} points.`,
+    "Play again", { gameOver: true, match: true });
+}
+
+function passTurn() {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  hideModal();
+  state.gameOver = endMatchTurn(state.match, true);
+  state.history = [];
+  if (state.gameOver) {
+    render();
+    showMatchResult();
+    saveGame(state);
+  } else {
+    deliverTray();
+  }
+}
+
+function requestPass() {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  const canStillPlace = state.tray.some(item => !item.used
+    && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+  if (!canStillPlace) {
+    passTurn();
+    return;
+  }
+  const player = state.match.player === 0 ? "Red" : "Blue";
+  modalAction = passTurn;
+  const endsMatch = state.match.consecutivePasses === 1;
+  showModal(`${player}, pass?`,
+    `You can still place a piece. Discard the rest of this tray and end your turn?${endsMatch ? " This pass will end the game." : ""}`,
+    "Pass", { showCancel: true });
 }
 
 function formatTime(milliseconds) {
@@ -411,6 +501,7 @@ function beginDrag(event) {
   if (state.gameOver || placementPending) return;
   if (drag || event.isPrimary === false) return;
   if (event.button !== undefined && event.button !== 0) return;
+  if (elements.modal.classList.contains("is-open")) return;
 
   const slot = event.currentTarget;
   const item = state.tray.find(piece => piece.uid === slot.dataset.uid);
@@ -426,7 +517,7 @@ function beginDrag(event) {
 
   const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
   const boardRect = elements.board.getBoundingClientRect();
-  const boardSize = boardDimensions(state.board.radius + 1);
+  const boardSize = getBoardDimensions(state.board);
   const cellSize = boardRect.width / boardSize.width;
   const piece = makePiece(shape, cellSize);
   const { width, height, minX, minY } = shapeDimensions(shape);
@@ -468,6 +559,8 @@ function beginDrag(event) {
     valid: false,
   };
 
+  applyPreferences();
+
   updateDrag(event);
   window.addEventListener("pointermove", updateDrag, { passive: false });
   window.addEventListener("pointerup", endDrag);
@@ -480,13 +573,14 @@ function liftForPointer(pointerY) {
   const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
   const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
   // Keep the bottom of the board within reach on a short landscape screen.
+  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
   return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
-    ? Math.min(lift, 24)
+    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
     : lift;
 }
 
 function snapDragToCell(boardRect) {
-  const point = hexToPixel(drag.originQ, drag.originR, drag.cellSize);
+  const point = boardPoint(state.board, drag.originQ, drag.originR, drag.cellSize);
   const left = boardRect.left + boardRect.width / 2 + point.x - drag.anchorX;
   const top = boardRect.top + boardRect.height / 2 + point.y - drag.anchorY;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
@@ -514,11 +608,11 @@ function updateDrag(event) {
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 
-  // Snap the anchor to the nearest hex center, using all three axes.
+  // Snap the anchor to a cell center in the current grid.
   const boardRect = elements.board.getBoundingClientRect();
   const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
   const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
-  const candidate = pixelToHex(anchorX, anchorY, drag.cellSize);
+  const candidate = boardCellAt(state.board, anchorX, anchorY, drag.cellSize);
   const candidateIsValid = canPlace(
     state.board,
     drag.shape,
@@ -530,7 +624,7 @@ function updateDrag(event) {
   // Normal snapping changes at half a cell; resistance extends that boundary.
   if (drag.valid && !candidateIsValid) {
     const resistance = Math.max(0, CONFIG.drag.invalidMoveResistance);
-    const distance = hexDistance(candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
+    const distance = placementDistance(state.board, candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
     const releaseDistance = 0.5 + resistance;
 
     if (distance < releaseDistance) {
@@ -595,6 +689,7 @@ function cleanupDrag() {
   elements.dragLayer.replaceChildren();
   clearPreview();
   drag = null;
+  applyPreferences();
 }
 
 function returnDragToTray() {
@@ -620,12 +715,15 @@ function returnDragToTray() {
 
 function openResetModal() {
   if (placementPending || drag) return;
+  modalAction = startNewGame;
   showModal(
     activeTimed ? "Restart time trial?" : "Restart game?",
     activeTimed
       ? "Your timed board, score, and countdown will restart."
-      : "Your current board and score will be replaced with a fresh game.",
+      : state.match ? "Restart the board and both scores? Red will start."
+        : "Your current board and score will be replaced with a fresh game.",
     "Restart",
+    { showCancel: true },
   );
 }
 
@@ -677,9 +775,17 @@ function updateFullscreenButton() {
 }
 
 elements.undoButton.addEventListener("click", undo);
+elements.passButton.addEventListener("click", requestPass);
 elements.resetButton.addEventListener("click", openResetModal);
 elements.settingsButton.addEventListener("click", openSettings);
-elements.modalButton.addEventListener("click", startNewGame);
+elements.modalButton.addEventListener("click", () => modalAction());
+elements.modalCancelButton.addEventListener("click", () => {
+  hideModal();
+  elements.passButton.focus();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
+});
 elements.modalUndoButton.addEventListener("click", undo);
 elements.fullscreenButton.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", updateFullscreenButton);
@@ -703,44 +809,67 @@ if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) 
 
 initSettings({
   onChange: restartForSettingsChange,
+  onBoardChange: switchBoardMode,
+  onClose: () => { if (state.gameOver) showCurrentResult(); },
+  onResetSettings: () => {
+    resetSavedGames();
+    restartForSettingsChange();
+  },
   onAccessibilityChange: applyPreferences,
   onResetBest: () => {
-    bestScore = 0;
-    modifiedBestScore = 0;
-    timedBestScore = 0;
-    timedModifiedBestScore = 0;
-    saveBestScore(0);
-    saveModifiedBestScore(0);
-    saveTimedBestScore(0, false);
-    saveTimedBestScore(0, true);
+    resetAllScores();
+    refreshBestScores();
     elements.bestScore.textContent = "0";
   },
 });
 
-// A saved board is restored only when it belongs to the selected mode.
-const savedState = loadGame();
-if (savedState?.tray?.length && savedState.timedMode === activeTimed) {
-  state = { ...createInitialState(activeTimed), ...savedState };
-  if (savedState.scoringVersion !== 2) {
-    state.streak = 0;
-    state.scoringVersion = 2;
-    saveGame(state);
+function showCurrentResult() {
+  if (state.match) {
+    showMatchResult();
+    return;
   }
-  buildBoard(state.board.radius + 1);
-  render();
-  if (state.gameOver) {
-    showModal(
-      activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
-      `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
-      "Play again",
-      { gameOver: true, score: state.score, showUndo: false },
-    );
-  } else {
-    hideModal();
-    if (state.timerStarted) startTimer();
-  }
-} else {
-  buildBoard(state.board.radius + 1);
-  render();
+  showModal(
+    activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
+    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
+    "Play again",
+    { gameOver: true, score: state.score, showUndo: loadPreferences().undoEnabled && state.history.length > 0 },
+  );
 }
+
+// Each board restores its own saved game when its tab becomes active.
+function restoreCurrentGame(showWelcome) {
+  const preferences = loadPreferences();
+  const savedState = loadGame(Boolean(preferences.twoPlayerEnabled));
+  if (savedState?.tray?.length && savedState.timedMode === activeTimed
+    && getBoardSide(savedState.board) === preferences.boardSide) {
+    state = { ...createInitialState(activeTimed), ...savedState };
+    if (savedState.scoringVersion !== 2) {
+      state.streak = 0;
+      state.scoringVersion = 2;
+      saveGame(state);
+    }
+    buildBoard(getBoardSide(state.board));
+    render();
+    if (state.gameOver) {
+      if (showWelcome) showCurrentResult();
+      else hideModal();
+    } else {
+      hideModal();
+      if (state.tray.every(item => item.used)) {
+        placementPending = true;
+        finishPlacement();
+      }
+      if (state.timerStarted) startTimer();
+    }
+  } else {
+    buildBoard(getBoardSide(state.board));
+    if (showWelcome) render();
+    else {
+      hideModal();
+      deliverTray();
+    }
+  }
+}
+
+restoreCurrentGame(true);
 }());

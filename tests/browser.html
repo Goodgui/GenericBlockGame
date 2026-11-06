@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hex prototype checks</title>
+  <title>Hex game checks</title>
   <style>
     body { max-width: 640px; margin: 30px auto; padding: 16px; font: 16px system-ui; }
     button { display: block; min-height: 44px; margin: 12px 0; font: inherit; }
   </style>
 </head>
 <body>
-  <h1>Hex prototype checks</h1>
+  <h1>Hex game checks</h1>
   <p>These buttons replace the hex game and settings on this browser origin with known boards. Square saves stay intact. Drag the first piece into the center gap, then check the score, Undo, and reload.</p>
   <button type="button" data-case="chunk">Finish a fixed group (7 points)</button>
   <button type="button" data-case="line">Finish a line (9 points)</button>
@@ -20,20 +20,28 @@
   <button type="button" data-case="gameOver">Fill the last gap, then no moves</button>
   <button type="button" data-case="timed">Timed game (30 seconds)</button>
   <button type="button" data-case="empty">Empty default board</button>
+  <button type="button" data-case="twoPlayer">2 Player: red starts, pass or place pieces</button>
+  <button type="button" data-case="versusClear">2 Player: blue completes red's line (9 points)</button>
+  <button type="button" data-case="versusRefill">2 Player: red's last piece switches to blue</button>
+  <button type="button" data-case="versusBlocked">2 Player: blocked board, pass twice to finish</button>
+  <button type="button" data-case="versusColors">2 Player: both colors and scores</button>
   <script src="../config.js"></script>
   <script src="../hex.js"></script>
   <script src="../preferences.js"></script>
   <script src="../shapes.js"></script>
   <script src="../board.js"></script>
+  <script src="../two-player.js"></script>
   <script>
     const game = window.GenericBlockGame;
     function loadCase(name) {
+      game.setBoardMode("hex");
       const preferences = game.defaultPreferences();
       preferences.dragInitialOffset = 0;
       preferences.dragMovingOffset = 0;
       preferences.dragHorizontalOffset = 0;
       preferences.timeTrialEnabled = name === "timed";
       preferences.timeTrialSeconds = 30;
+      preferences.twoPlayerEnabled = name === "twoPlayer" || name.startsWith("versus");
       game.savePreferences(preferences);
       const board = game.createEmptyBoard();
       const centerChunk = game.boardChunks(board).find(chunk => chunk.center === "0,0");
@@ -56,14 +64,35 @@
         board.cells["1,0"] = 0;
       }
       board.cells["0,0"] = 0;
+      const match = preferences.twoPlayerEnabled ? game.createMatch() : null;
+      if (name === "versusClear") {
+        match.player = 1;
+        for (let q = -4; q <= 4; q += 1) if (q !== 0) board.cells[`${q},0`] = 1;
+      }
+      if (name === "versusBlocked") {
+        for (const key of Object.keys(board.cells)) board.cells[key] = 1;
+        match.scores = [7, 9];
+      }
+      if (name === "versusColors") {
+        match.player = 1;
+        match.scores = [7, 9];
+        for (const key of ["-2,0", "-1,0", "-2,1", "0,-2"]) board.cells[key] = 1;
+        for (const key of ["2,0", "2,-1", "1,1", "0,2"]) board.cells[key] = 2;
+      }
       const tray = ["single", "line5", "diamond4"].map((shapeId, index) => ({
         uid: `fixture-${index}`, shapeId, rotation: 0, used: name === "refill" && index > 0,
       }));
       if (name === "gameOver") tray[1].shapeId = tray[2].shapeId = "line5";
-      localStorage.setItem(game.CONFIG.storageKey, JSON.stringify({
+      if (name === "versusRefill") {
+        tray[1].used = tray[2].used = true;
+        match.placed = 2;
+      }
+      const storageKey = match ? game.CONFIG.twoPlayerStorageKey : game.CONFIG.storageKey;
+      localStorage.setItem(storageKey, JSON.stringify({
         board, tray, history: [], score: 0, streak: 0, scoringVersion: 2,
         gameOver: false, timedMode: preferences.timeTrialEnabled,
         timerStarted: false, timeRemainingMs: preferences.timeTrialEnabled ? 30000 : null,
+        match,
       }));
       location.href = "../index.html";
     }

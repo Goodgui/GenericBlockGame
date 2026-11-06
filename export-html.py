@@ -1,4 +1,4 @@
-"""Bundle the hex prototype into one HTML file with no asset downloads."""
+"""Bundle GenericBlockGame into one HTML file with no asset downloads."""
 
 from pathlib import Path
 import re
@@ -24,7 +24,7 @@ html = html.replace(
     "<!-- Ordered classic scripts also work when this file is opened with file://. -->",
     "<!-- Standalone export: styles and scripts are included below. -->",
 )
-output = root / "exports" / "hex-prototype.html"
+output = root / "exports" / "generic-block-game.html"
 output.parent.mkdir(exist_ok=True)
 output.write_text(html, encoding="utf-8")
 print(f"Created {output.name}: {output.stat().st_size:,} bytes")

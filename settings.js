@@ -1,20 +1,24 @@
 (function () {
 const {
-  CONFIG,
-  SHAPES,
-  defaultPreferences,
+  getBoardMode,
+  resetAllPreferences,
+  rotationCount,
+  rotateShape,
   getAllShapes,
   loadPreferences,
   savePreferences,
   shapeDimensions,
   makePiece,
   buildHexGrid,
+  buildSquareGrid,
 } = window.GenericBlockGame;
 
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
+const boardTypeSetting = document.querySelector("#boardTypeSetting");
+const boardSettingsContent = document.querySelector("#boardSettingsContent");
 const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetting");
 const timeTrialDurationRow = document.querySelector("#timeTrialDurationRow");
 const dragInitialOffsetSetting = document.querySelector("#dragInitialOffsetSetting");
@@ -134,11 +138,15 @@ function removeCustomPiece(id) {
 }
 
 function buildEditor() {
-  buildHexGrid(editor, 3, (q, r, key) => {
+  const square = getBoardMode() === "square";
+  const build = square ? buildSquareGrid : buildHexGrid;
+  editor.classList.toggle("square-editor", square);
+  document.querySelector("#pieceEditorHint").textContent = `Select ${square ? "square" : "hex"} cells to make a piece.`;
+  build(editor, square ? 5 : 3, (q, r, key) => {
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.cell = key;
-    button.setAttribute("aria-label", `Editor hex ${q}, ${r}`);
+    button.setAttribute("aria-label", `Editor ${square ? "square" : "hex"} ${q}, ${r}`);
     button.setAttribute("aria-pressed", "false");
     button.addEventListener("click", () => {
       selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
@@ -173,12 +181,10 @@ function layoutKey(cells) {
 
 // Checks every rotation, so a sideways copy also counts as an existing piece.
 function pieceAlreadyExists(cells) {
-  let rotatedCells = cells.map(([x, y]) => [x, y]);
   const candidateKeys = new Set();
 
-  for (let turn = 0; turn < 6; turn += 1) {
-    candidateKeys.add(layoutKey(rotatedCells));
-    rotatedCells = rotatedCells.map(([q, r]) => [-r, q + r]);
+  for (let turn = 0; turn < rotationCount(); turn += 1) {
+    candidateKeys.add(layoutKey(rotateShape({ cells }, turn).cells));
   }
 
   return getAllShapes().some(shape => candidateKeys.has(layoutKey(shape.cells)));
@@ -187,7 +193,7 @@ function pieceAlreadyExists(cells) {
 function saveCustomPiece() {
   const cells = [...selectedCells].map(key => key.split(",").map(Number));
   if (!cells.length) {
-    message.textContent = "Select at least one hex.";
+    message.textContent = "Select at least one cell.";
     return;
   }
   const [anchorQ, anchorR] = cells[0];
@@ -227,10 +233,18 @@ function saveAccessibilityAndNotify() {
   callbacks.onAccessibilityChange?.(preferences);
 }
 
-function openSettings() {
+function renderSettings() {
   preferences = loadPreferences();
+  const mode = getBoardMode();
+  boardTypeSetting.style.setProperty("--selected-index", mode === "hex" ? 0 : 1);
+  boardTypeSetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.boardMode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected) boardSettingsContent.setAttribute("aria-labelledby", button.id);
+  });
   undoSetting.checked = preferences.undoEnabled;
-  updateGameModeControl(preferences.timeTrialEnabled);
+  updateGameModeControl();
   timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
   timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
   dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
@@ -241,7 +255,13 @@ function openSettings() {
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
   traySizeSetting.value = String(preferences.traySize);
   updateBoardSizeControl(preferences.boardSide);
+  clearEditor();
+  buildEditor();
   renderPieceList();
+}
+
+function openSettings() {
+  renderSettings();
   panel.classList.add("is-open");
   panel.setAttribute("aria-hidden", "false");
 }
@@ -250,6 +270,7 @@ function closeSettings() {
   closeResetConfirmation();
   panel.classList.remove("is-open");
   panel.setAttribute("aria-hidden", "true");
+  callbacks.onClose?.();
 }
 
 function clampInteger(value, minimum, maximum) {
@@ -257,20 +278,30 @@ function clampInteger(value, minimum, maximum) {
 }
 
 function updateBoardSizeControl(size) {
-  const sizes = [4, 5, 6];
+  const square = getBoardMode() === "square";
+  const sizes = square ? [6, 9, 12] : [4, 5, 6];
+  const label = square ? "Board size" : "Cells per edge";
+  document.querySelector("#boardSizeLabel").textContent = label;
+  boardSizeSetting.setAttribute("aria-label", label);
   const selectedIndex = Math.max(0, sizes.indexOf(size));
   boardSizeSetting.style.setProperty("--selected-index", selectedIndex);
-  boardSizeSetting.querySelectorAll("button").forEach(button => {
+  boardSizeSetting.querySelectorAll("button").forEach((button, index) => {
+    button.dataset.size = sizes[index];
+    button.textContent = square ? `${sizes[index]}×${sizes[index]}` : sizes[index];
     const selected = Number(button.dataset.size) === size;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
 }
 
-function updateGameModeControl(timed) {
-  gameModeSetting.style.setProperty("--selected-index", timed ? 1 : 0);
+function updateGameModeControl() {
+  const square = getBoardMode() === "square";
+  gameModeSetting.querySelector('[data-mode="two-player"]').hidden = square;
+  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 3);
+  const mode = preferences.twoPlayerEnabled ? "two-player" : preferences.timeTrialEnabled ? "timed" : "unlimited";
+  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player"].indexOf(mode));
   gameModeSetting.querySelectorAll("button").forEach(button => {
-    const selected = (button.dataset.mode === "timed") === timed;
+    const selected = button.dataset.mode === mode;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
@@ -279,8 +310,8 @@ function updateGameModeControl(timed) {
 function openResetConfirmation(type) {
   pendingReset = type;
   resetConfirmationText.textContent = type === "score"
-    ? "Reset all hex top scores to zero? This cannot be undone."
-    : "Restore every setting, frequency, drag offset, and custom piece to its default?";
+    ? "Reset all Hex and Square top scores to zero? This cannot be undone."
+    : "Restore settings and remove custom pieces for both Hex and Square? This also resets shared accessibility settings and starts fresh games.";
   resetConfirmation.hidden = false;
   resetConfirmation.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
@@ -294,23 +325,9 @@ function confirmReset() {
   if (pendingReset === "score") {
     callbacks.onResetBest?.();
   } else if (pendingReset === "settings") {
-    preferences = defaultPreferences();
-    savePreferences(preferences);
-    undoSetting.checked = preferences.undoEnabled;
-    updateGameModeControl(preferences.timeTrialEnabled);
-    timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
-    timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
-    dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
-    dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
-    dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
-    pieceHueSetting.value = String(preferences.pieceHue);
-    pieceHueValue.textContent = `${preferences.pieceHue}°`;
-    snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
-    traySizeSetting.value = String(preferences.traySize);
-    updateBoardSizeControl(preferences.boardSide);
-    clearEditor();
-    renderPieceList();
-    callbacks.onChange?.(preferences);
+    resetAllPreferences();
+    callbacks.onResetSettings?.();
+    renderSettings();
   }
   closeResetConfirmation();
 }
@@ -318,15 +335,32 @@ function confirmReset() {
 function initSettings(options) {
   callbacks = options;
   buildEditor();
+  boardTypeSetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-board-mode]");
+    if (!button || button.dataset.boardMode === getBoardMode()) return;
+    closeResetConfirmation();
+    callbacks.onBoardChange?.(button.dataset.boardMode);
+    renderSettings();
+  });
+  boardTypeSetting.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const mode = event.key === "Home" ? "hex" : event.key === "End" ? "square"
+      : getBoardMode() === "hex" ? "square" : "hex";
+    const button = boardTypeSetting.querySelector(`[data-board-mode="${mode}"]`);
+    button.click();
+    button.focus();
+  });
   undoSetting.addEventListener("change", () => {
     preferences.undoEnabled = undoSetting.checked;
     saveAndNotify();
   });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");
-    if (!button) return;
+    if (!button || (button.dataset.mode === "two-player" && getBoardMode() === "square")) return;
     preferences.timeTrialEnabled = button.dataset.mode === "timed";
-    updateGameModeControl(preferences.timeTrialEnabled);
+    preferences.twoPlayerEnabled = button.dataset.mode === "two-player";
+    updateGameModeControl();
     timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
     saveAndNotify();
   });
