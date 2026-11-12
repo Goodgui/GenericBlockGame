@@ -6,17 +6,77 @@ const vm = require("node:vm");
 
 function setup(entries = []) {
   const saved = new Map(entries);
+  const writes = [];
   const context = vm.createContext({
     window: {},
     localStorage: {
       getItem: key => saved.get(key) ?? null,
-      setItem: (key, value) => saved.set(key, value),
+      setItem: (key, value) => { writes.push(key); saved.set(key, value); },
     },
   });
   for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "storage.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
-  return { game: context.window.GenericBlockGame, saved };
+  return { game: context.window.GenericBlockGame, saved, writes };
+}
+
+test("repeated shape lookups do not write saved settings", () => {
+  const { game, writes } = setup();
+  game.savePreferences(game.defaultPreferences());
+  writes.length = 0;
+  for (let i = 0; i < 100; i += 1) assert.equal(game.shapeById("single").id, "single");
+  assert.equal(writes.length, 0);
+});
+
+test("reading fresh defaults and shapes does not create settings", () => {
+  const { game, saved, writes } = setup();
+  for (let i = 0; i < 100; i += 1) {
+    game.loadPreferences();
+    game.shapeById("single");
+  }
+  assert.equal(writes.length, 0);
+  assert.equal(saved.size, 0);
+});
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: settings migrate once and custom pieces stay current`, () => {
+    const { game, saved, writes } = setup();
+    game.setBoardMode(mode);
+    const key = game.storageKeys().settingsKey;
+    saved.set(key, JSON.stringify({
+      boardSettingsVersion: 0, frequencyVersion: 1, boardWidth: 12,
+      snapOverlapMultiplier: 2, dragMovingOffset: 215,
+      pieces: { single: { enabled: false, weight: 19 } },
+      customPieces: [{ id: "custom", cells: [[2,3], [3,3]], weight: 7 }],
+    }));
+    writes.length = 0;
+    const preferences = game.loadPreferences();
+    assert.equal(preferences.boardSide, mode === "hex" ? 5 : 12);
+    assert.equal(preferences.snapOverlapMultiplier, mode === "hex" ? 1.5 : 2);
+    assert.equal(preferences.dragMovingOffset, 215);
+    assert.equal(preferences.pieces.single.enabled, false);
+    assert.equal(preferences.pieces.single.weight, undefined);
+    assert.equal(preferences.boardSettingsVersion, 1);
+    assert.equal(preferences.frequencyVersion, 2);
+    assert.equal(writes.filter(name => name === key).length, 1);
+    assert.equal(writes.filter(name => name === game.CONFIG.globalSettingsKey).length, 1);
+    writes.length = 0;
+    for (let i = 0; i < 100; i += 1) {
+      assert.deepEqual(JSON.parse(JSON.stringify(game.shapeById("custom").cells)), [[0,0], [1,0]]);
+      const configured = game.getConfiguredShapes();
+      assert.equal(configured.find(shape => shape.id === "custom").weight, 7);
+      assert.equal(configured.find(shape => shape.id === "single").enabled, false);
+    }
+    assert.equal(writes.length, 0);
+    preferences.customPieces[0].cells = [[0,0], [0,1], [0,2]];
+    preferences.pieces.custom = { weight: 9 };
+    game.savePreferences(preferences);
+    assert.equal(game.shapeById("custom").cells.length, 3);
+    assert.equal(game.getConfiguredShapes().find(shape => shape.id === "custom").weight, 9);
+    preferences.customPieces = [];
+    game.savePreferences(preferences);
+    assert.equal(game.shapeById("custom").id, "single", "Deleted custom pieces retain the saved tray fallback");
+  });
 }
 
 test("both boards use shared offset defaults and their own snap defaults", () => {
@@ -229,7 +289,7 @@ test("old square games and Undo boards load from their original save key", () =>
   const board = Array.from({ length: 9 }, () => Array(9).fill(0));
   board[2][3] = 1;
   const { game } = setup([["generic-block-game-state-v1", JSON.stringify({
-    board, tray: [], history: [{ board }], score: 45,
+    board, tray: [], history: [{ board, tray: [], score: 0 }], score: 45,
   })]]);
   game.setBoardMode("square");
   const state = game.loadGame();

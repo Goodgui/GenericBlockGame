@@ -221,7 +221,8 @@ test("an existing AI save keeps each owner's pieces, scores, and Undo after the 
   match.board.cells["0,0"] = 1;
   match.board.cells["1,0"] = 2;
   match.match.scores = [17, 9];
-  match.history = [{ board: game.cloneBoard(match.board), match: game.cloneMatch(match.match) }];
+  match.history = [{ board: game.cloneBoard(match.board), match: game.cloneMatch(match.match),
+    score: match.score, streak: match.streak, tray: match.tray.map(item => ({ ...item })) }];
   game.saveGame(match);
   const restored = game.loadGame("ai");
   assert.deepEqual([...restored.match.scores], [17, 9]);

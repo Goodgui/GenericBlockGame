@@ -141,7 +141,8 @@ test("old match saves and Undo states keep their pass count", () => {
   const match = game.createMatch();
   delete match.consecutivePasses;
   match.emptyPasses = 1;
-  const state = { board: game.createEmptyBoard(), history: [{ match: game.cloneMatch(match) }], tray: [], match };
+  const state = { board: game.createEmptyBoard(), history: [{ board: game.createEmptyBoard(),
+    score: 0, streak: 0, tray: [], match: game.cloneMatch(match) }], tray: [], match };
   saved.set(game.CONFIG.twoPlayerStorageKey, JSON.stringify(state));
   const restored = game.loadGame(true);
   assert.equal(restored.match.consecutivePasses, 1);

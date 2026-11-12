@@ -53,7 +53,7 @@ function setup(saved = new Map(), host) {
   const game = window.GenericBlockGame;
   const elements = Object.fromEntries(["undoButton", "passButton", "continueButton", "trayPreviousButton", "trayNextButton", "board", "settingsPanel", "modal", "timerDisplay",
     "tray", "score", "bestScore", "bestScoreLabel", "modalButton", "modalUndoButton", "modalCancelButton",
-    "resetButton", "settingsButton", "fullscreenButton", "dragLayer", "changelogModal"].map(name => [name, element()]));
+    "resetButton", "settingsButton", "fullscreenButton", "dragLayer", "changelogModal", "saveStatus"].map(name => [name, element()]));
   elements.modal.classList.add("is-open");
   let result;
   let displayed;
@@ -139,6 +139,185 @@ test("native fullscreen starts without browser fullscreen controls or events", (
   assert.equal(app.elements.fullscreenButton.click, undefined);
   assert.equal(app.events.fullscreenchange, undefined);
   assert.equal(requests, 0);
+});
+
+test("a failed game save does not lock placement and the next move saves both moves", () => {
+  const app = setup();
+  app.game.saveGame(app.seed({ timed: false })); app.boot();
+  const key = app.game.storageKeys().storageKey;
+  const before = app.saved.get(key);
+  const write = app.context.localStorage.setItem;
+  app.context.localStorage.setItem = (name, value) => {
+    if (name === key) throw new Error("Storage full");
+    write(name, value);
+  };
+  let failure;
+  try { app.place(0, 0, 0); } catch (error) { failure = error; }
+  assert.equal(app.saved.get(key), before, "The failed write must leave the last save intact");
+  assert.equal(app.elements.saveStatus.hidden, false, "Show that progress was not saved");
+  assert.equal(app.game.saveGame(app.state()), false, "Report the failed write to callers");
+  app.advance(400);
+  app.context.localStorage.setItem = write;
+  app.place(1, 1, 0);
+  assert.equal(app.state().board.cells["1,0"], 1, "A failed save must not lock the next move");
+  assert.equal(failure, undefined, "Storage failure must not escape the move handler");
+  assert.equal(app.game.loadGame().board.cells["0,0"], 1);
+  assert.equal(app.game.loadGame().board.cells["1,0"], 1);
+  assert.equal(app.elements.saveStatus.hidden, true);
+  assert.equal(app.game.saveGame(app.state()), true);
+});
+
+for (const options of [
+  { mode: "hex", timed: false }, { mode: "square", timed: false },
+  { mode: "hex", timed: true }, { mode: "hex", match: true, timed: false },
+  { mode: "hex", ai: true, timed: false },
+]) {
+  test(`${JSON.stringify(options)}: failed writes during a clear preserve play and retry saving`, () => {
+    const app = setup(); lineGap(app, options);
+    const write = app.context.localStorage.setItem;
+    let profileChanges = 0;
+    app.game.profile.subscribe(event => { if (event.type === "profile-changed") profileChanges += 1; });
+    app.context.localStorage.setItem = () => { throw new Error("Storage full"); };
+    app.place(0, options.mode === "hex" ? 0 : 4, options.mode === "hex" ? 0 : 4);
+    assert.equal(app.state().score, 9);
+    assert.equal(app.game.findCompletedCells(app.state().board).zoneCount, 0);
+    assert.equal(app.elements.saveStatus.hidden, false);
+    assert.equal(profileChanges, 0, "A failed best score write must not send a success event");
+    app.advance(400);
+    assert.equal(app.elements.undoButton.disabled, false, "The effect must release input after failed writes");
+    app.context.localStorage.setItem = write;
+    app.place(1, 1, 1);
+    assert.equal(app.state().board.cells["1,1"], 1);
+    assert.equal(app.elements.saveStatus.hidden, true);
+    const saved = app.game.loadGame(options.ai ? "ai" : Boolean(options.match));
+    assert.equal(saved.score, 9);
+    assert.equal(saved.board.cells["1,1"], 1);
+    if (!options.match && !options.ai) {
+      assert.equal(options.timed ? app.game.loadTimedBestScore() : app.game.loadBestScore(), 9);
+      assert.equal(profileChanges, 1);
+    }
+  });
+}
+
+test("a failed last-piece save releases Continue and Undo after its effect", () => {
+  const app = setup();
+  app.game.saveGame(app.seed({ timed: false, slow: true, shapes: ["single"] })); app.boot();
+  const write = app.context.localStorage.setItem;
+  app.context.localStorage.setItem = () => { throw new Error("Storage full"); };
+  app.place(0, 0, 0); app.advance(400);
+  assert.equal(app.elements.continueButton.disabled, false);
+  assert.equal(app.elements.undoButton.disabled, false);
+  app.context.localStorage.setItem = write;
+  app.elements.undoButton.click();
+  assert.equal(app.game.loadGame().board.cells["0,0"], 0);
+  assert.equal(app.elements.saveStatus.hidden, true);
+});
+
+test("a damaged tray cannot crash startup", () => {
+  const app = setup();
+  const state = app.seed({ timed: false });
+  state.tray = [null];
+  app.game.saveGame(state);
+  assert.doesNotThrow(() => app.boot());
+  assert.equal(app.state().tray.length, 0, "Reject the damaged save and show the start screen");
+  app.elements.modalButton.click();
+  assert.ok(app.state().tray.length > 0, "A new game must still start");
+});
+
+const damagedSaves = {
+  "tray entry": state => { state.tray[0] = null; },
+  "tray type": state => { state.tray = {}; },
+  "piece ID": state => { state.tray[0].shapeId = {}; },
+  "piece UID": state => { state.tray[0].uid = null; },
+  "duplicate UID": state => { state.tray[1].uid = state.tray[0].uid; },
+  "used flag": state => { state.tray[0].used = "false"; },
+  "rotation": state => { state.tray[0].rotation = 99; },
+  "score": state => { state.score = "9"; },
+  "streak": state => { state.streak = null; },
+  "game over flag": state => { state.gameOver = []; },
+  "AI flag": state => { state.aiOpponent = "false"; },
+  "timer flag": state => { state.timedMode = {}; },
+  "timer started flag": state => { state.timerStarted = "false"; },
+  "timer value": state => { state.timedMode = true; state.timeRemainingMs = -1; },
+  "save version": state => { state.saveVersion = "1"; },
+  "score version": state => { state.scoringVersion = null; },
+  "history type": state => { state.history = {}; },
+  "history entry": state => { state.history = [null]; },
+  "Undo board": state => { state.history[0].board.cells["0,0"] = 8; },
+  "Undo board size": (state, game) => { state.history[0].board = game.createEmptyBoard(state.board.type === "hex" ? 4 : 6); },
+  "Undo tray": state => { state.history[0].tray = [null]; },
+  "Undo missing tray": state => { delete state.history[0].tray; },
+  "Undo score": state => { state.history[0].score = -1; },
+  "Undo streak": state => { state.history[0].streak = {}; },
+  "Undo match": state => { state.history[0].match = {}; },
+};
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: damaged saves are rejected before startup and a new game remains playable`, () => {
+    for (const [name, damage] of Object.entries(damagedSaves)) {
+      const app = setup(); const state = app.seed({ mode, timed: false });
+      state.history = [JSON.parse(JSON.stringify(state))];
+      state.saveVersion = 1;
+      damage(state, app.game);
+      app.saved.set(app.game.storageKeys().storageKey, JSON.stringify(state));
+      assert.equal(app.game.loadGame(), null, name);
+      assert.doesNotThrow(() => app.boot(), name);
+      app.elements.modalButton.click();
+      assert.equal(app.state().gameOver, false, name);
+      assert.ok(app.state().tray.some(item => app.game.canPlaceAnywhere(app.state().board,
+        app.game.rotateShape(app.game.shapeById(item.shapeId), item.rotation))), name);
+    }
+  });
+
+  test(`${mode}: older saves still restore, play, and undo`, () => {
+    const app = setup(); const state = app.seed({ mode, timed: false });
+    state.score = 12;
+    state.tray[0].used = true;
+    state.board.cells["0,0"] = 1;
+    state.history = [{ board: app.game.createEmptyBoard(), score: 0,
+      tray: state.tray.map(item => ({ uid: item.uid, shapeId: item.shapeId, used: false })) }];
+    for (const field of ["streak", "scoringVersion", "match", "aiOpponent", "timedMode", "timerStarted", "timeRemainingMs"]) delete state[field];
+    for (const entry of [state, ...state.history]) {
+      if (mode === "square") entry.board = Array.from({ length: 9 }, (_, r) =>
+        Array.from({ length: 9 }, (_, q) => entry.board.cells[`${q},${r}`]));
+      else delete entry.board.type;
+      for (const item of entry.tray) delete item.rotation;
+    }
+    app.saved.set(app.game.storageKeys().storageKey, JSON.stringify(state)); app.boot();
+    assert.equal(app.state().score, 12);
+    assert.equal(app.state().scoreRun.defaultRules, false);
+    app.elements.undoButton.click();
+    assert.equal(app.state().score, 0);
+    assert.equal(app.state().board.cells["0,0"], 0);
+    app.place(0, 0, 0);
+    assert.equal(app.state().board.cells["0,0"], 1);
+  });
+}
+
+test("damaged score metadata cannot break play or grant score eligibility", () => {
+  for (const scoreRun of ["bad", [], {}, { version: 1, defaultRules: true }]) {
+    const app = setup(); const state = app.seed({ timed: false });
+    state.scoreRun = scoreRun;
+    app.game.saveGame(state); app.boot();
+    assert.equal(app.state().scoreRun.defaultRules, false);
+    app.place(0, 0, 0);
+    assert.equal(app.state().board.cells["0,0"], 1);
+  }
+});
+
+test("match and AI saves reject damaged turn and Undo data", () => {
+  for (const ai of [false, true]) {
+    for (const damage of [state => { state.match.scores = [0, null]; },
+      state => { state.history[0].match.streaks = [0, "1"]; },
+      state => { state.history[0].match.player = 2; }]) {
+      const app = setup(); const state = app.seed({ timed: false, match: !ai, ai });
+      state.history = [JSON.parse(JSON.stringify(state))];
+      damage(state);
+      app.game.saveGame(state);
+      assert.equal(app.game.loadGame(ai ? "ai" : true), null);
+      assert.doesNotThrow(() => app.boot());
+    }
+  }
 });
 
 for (const host of [undefined, { fullscreen: "browser" }, { fullscreen: "unknown" }]) {
@@ -494,7 +673,8 @@ for (const mode of ["hex", "square"]) {
 test("legacy clear repair requires a matching score change", () => {
   const app = setup(); const state = app.seed();
   for (let q = -4; q <= 4; q += 1) state.board.cells[`${q},0`] = 1;
-  Object.assign(state, { score: 20, streak: 1, history: [{ board: app.game.cloneBoard(state.board), score: 0 }] });
+  Object.assign(state, { score: 20, streak: 1, history: [{ board: app.game.cloneBoard(state.board),
+    score: 0, streak: 0, tray: state.tray.map(item => ({ ...item })) }] });
   app.saved.set(app.game.CONFIG.storageKey, JSON.stringify(state));
   assert.equal(app.game.findCompletedCells(app.game.loadGame().board).zoneCount, 1);
 });

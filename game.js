@@ -38,7 +38,7 @@ const {
   saveBestScore,
   saveModifiedBestScore,
   saveTimedBestScore,
-  saveGame,
+  saveGame: writeGame,
   animateClear,
   animateAiMove,
   buildBoard,
@@ -161,6 +161,15 @@ function render() {
   applyPreferences();
   renderTimer();
   scheduleAiMove();
+}
+
+// A failed write must not stop play or hide the fact that progress is unsaved.
+function saveGame(state) {
+  let bestSaved = true;
+  try { updateBestScore(); } catch { bestSaved = false; }
+  const gameSaved = writeGame(state);
+  elements.saveStatus.hidden = bestSaved && gameSaved;
+  return bestSaved && gameSaved;
 }
 
 function settingsAreModified() {
@@ -376,7 +385,6 @@ function placePiece(item, shape, originQ, originR) {
     prepareTray();
   }
   checkGameOver(false);
-  updateBestScore();
   saveGame(state);
   render();
   if (completed.zoneCount) animateClear(completed.cells, gained);
@@ -432,22 +440,22 @@ function updateBestScore() {
   if (state.match) return;
   if (activeTimed && settingsAreModified()) {
     if (state.score > timedModifiedBestScore) {
+      saveTimedBestScore(state.score, true);
       timedModifiedBestScore = state.score;
-      saveTimedBestScore(timedModifiedBestScore, true);
     }
   } else if (activeTimed) {
     if (state.score > timedBestScore) {
+      saveTimedBestScore(state.score, false);
       timedBestScore = state.score;
-      saveTimedBestScore(timedBestScore, false);
     }
   } else if (settingsAreModified()) {
     if (state.score > modifiedBestScore) {
+      saveModifiedBestScore(state.score);
       modifiedBestScore = state.score;
-      saveModifiedBestScore(modifiedBestScore);
     }
   } else if (state.score > bestScore) {
+    saveBestScore(state.score);
     bestScore = state.score;
-    saveBestScore(bestScore);
   }
 }
 
@@ -578,8 +586,8 @@ function finishTimeTrial() {
   cleanupDrag();
   state.timeRemainingMs = 0;
   state.gameOver = true;
-  updateBestScore();
   window.GenericBlockGame.finishScoreRun?.(state);
+  saveGame(state);
   render();
   showModal(
     "Time's up",
@@ -587,7 +595,6 @@ function finishTimeTrial() {
     "Play again",
     { gameOver: true, score: state.score, showUndo: false },
   );
-  saveGame(state);
 }
 
 // Starts a drag from the entire large tray slot, not just the colored cells.

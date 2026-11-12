@@ -43,6 +43,7 @@ function setup(mode, side, landscape = false) {
     addEventListener(type, action) { this[type] = action; }
   }
   const elements = new Map(), saved = new Map();
+  const writes = [];
   const timers = new Map(), listeners = new Map();
   let now = 0, nextTimer = 0;
   const window = {
@@ -65,7 +66,8 @@ function setup(mode, side, landscape = false) {
     now = end;
   }
   const context = vm.createContext({ window, localStorage: {
-    getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value),
+    getItem: key => saved.get(key) ?? null,
+    setItem: (key, value) => { writes.push(key); saved.set(key, value); },
   }, document: {
     body: new Element(), querySelector(selector) {
       if (!elements.has(selector)) elements.set(selector, new Element());
@@ -83,10 +85,25 @@ function setup(mode, side, landscape = false) {
   const cells = new Map(elements.get("#board").children.filter(node => node.tag === "div")
     .map(cell => [`${cell.dataset.q},${cell.dataset.r}`, cell]));
   const borders = elements.get("#board").children.find(node => node.attributes.class === "chunk-outlines").children;
-  return { game, board, state, cells, borders, elements, advance, listeners,
+  return { game, board, state, cells, borders, elements, advance, listeners, writes,
     setLandscape: value => { landscape = value; },
     emit: type => [...(listeners.get(type) || [])].forEach(action => action()),
     draw: () => game.renderGame(state, 0, "Best score", () => true, () => {}) };
+}
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: repeated tray and board renders do not write settings`, () => {
+    const app = setup(mode, mode === "hex" ? 5 : 9);
+    const preferences = app.game.defaultPreferences();
+    preferences.customPieces = [{ id: "custom", weight: 5, cells: [[2,3], [3,3]] }];
+    app.game.savePreferences(preferences);
+    app.state.tray = ["single", "custom", "line3"].map((shapeId, index) =>
+      ({ uid: `piece-${index}`, shapeId, rotation: 0, used: false }));
+    app.writes.length = 0;
+    for (let i = 0; i < 100; i += 1) app.draw();
+    assert.equal(app.writes.length, 0);
+    assert.equal(app.elements.get("#tray").children.length, 3);
+  });
 }
 
 test("AI motion follows a resized board and waits until it reaches the new target", () => {

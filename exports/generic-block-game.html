@@ -89,6 +89,14 @@ button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .topbar { min-height: 52px; }
 .topbar { padding: 0 18px; }
+.topbar > button { flex-shrink: 0; }
+.save-status {
+  max-width: 16rem;
+  margin: 0 8px;
+  color: #f0c38a;
+  font-size: 12px;
+  text-align: center;
+}
 .square-mode { --hex-points: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 
 .topbar-spacer { width: 44px; }
@@ -1097,6 +1105,7 @@ html[data-native-fullscreen] .fullscreen-button { display: none; }
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
         </svg>
       </button>
+      <p id="saveStatus" class="save-status" role="status" hidden>Progress is not saved. Keep this page open.</p>
       <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 4v6h6"></path>
@@ -1565,6 +1574,7 @@ function loadGlobalPreferences() {
   if (saved) return pickSettings(saved, defaults);
   const legacy = readSettings(storageKeys(getBoardMode()).settingsKey)
     || readSettings(storageKeys(getBoardMode() === "hex" ? "square" : "hex").settingsKey) || {};
+  if (!Object.keys(defaults).some(key => key in legacy)) return defaults;
   const global = pickSettings(legacy, defaults);
   // Replace the old offset defaults while keeping custom values.
   for (const key of ["dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset"]) {
@@ -1589,12 +1599,16 @@ function loadPreferences(mode = getBoardMode()) {
   if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
     preferences.snapOverlapMultiplier = 1.5;
   }
+  preferences.boardSettingsVersion = 1;
   if (preferences.frequencyVersion !== 2) {
-    for (const setting of Object.values(preferences.pieces)) delete setting.weight;
+    preferences.pieces = Object.fromEntries(Object.entries(preferences.pieces)
+      .map(([id, { weight, ...setting }]) => [id, setting]));
     preferences.frequencyVersion = 2;
   }
   const global = loadGlobalPreferences();
-  if (Object.keys(saved).length) localStorage.setItem(key, JSON.stringify(preferences));
+  const changed = Object.keys(saved).length !== Object.keys(preferences).length
+    || Object.entries(preferences).some(([name, value]) => JSON.stringify(value) !== JSON.stringify(saved[name]));
+  if (Object.keys(saved).length && changed) localStorage.setItem(key, JSON.stringify(preferences));
   return { ...preferences, ...global };
 }
 
@@ -2154,19 +2168,84 @@ function saveGame(state) {
 
   const keys = storageKeys(state.board.type || "hex");
   const key = state.match ? (state.aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : keys.storageKey;
-  localStorage.setItem(key, JSON.stringify(saved));
+  try {
+    localStorage.setItem(key, JSON.stringify(saved));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function restoreBoard(board, mode) {
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isCount(value) {
+  return Number.isSafeInteger(value) && value >= 0;
+}
+
+function restoreBoard(board, mode, twoPlayer) {
   if (mode === "square" && Array.isArray(board)) {
+    if (![6, 9, 12].includes(board.length)
+      || !board.every(row => Array.isArray(row) && row.length === board.length)) return null;
     const converted = createEmptyBoard(board.length, "square");
-    if (!board.every(row => Array.isArray(row) && row.length === board.length)) return null;
     for (const [r, row] of board.entries()) {
       for (const [q, value] of row.entries()) converted.cells[`${q},${r}`] = value;
     }
-    return converted;
+    board = converted;
   }
-  return board ? { ...board, type: board.type || mode } : null;
+  if (!isRecord(board)) return null;
+  board = { ...board, type: board.type === undefined ? mode : board.type };
+  if (board.type !== mode) return null;
+  const size = mode === "hex" ? board.radius + 1 : board.size;
+  if (!(mode === "hex" ? [4, 5, 6] : [6, 9, 12]).includes(size)) return null;
+  const expectedCells = Object.keys(createEmptyBoard(size, mode).cells);
+  if (!isRecord(board.cells) || Object.keys(board.cells).length !== expectedCells.length
+    || !expectedCells.every(key => board.cells[key] === 0 || board.cells[key] === 1
+      || (twoPlayer && board.cells[key] === 2))) return null;
+  return board;
+}
+
+function restoreTray(tray, mode) {
+  if (!Array.isArray(tray)) return null;
+  const ids = new Set();
+  const restored = [];
+  for (const item of tray) {
+    if (!isRecord(item) || typeof item.uid !== "string" || !item.uid || ids.has(item.uid)
+      || typeof item.shapeId !== "string" || !item.shapeId || typeof item.used !== "boolean") return null;
+    const rotation = item.rotation === undefined ? 0 : item.rotation;
+    if (!isCount(rotation) || rotation >= (mode === "hex" ? 6 : 4)) return null;
+    ids.add(item.uid);
+    restored.push({ ...item, rotation });
+  }
+  return restored;
+}
+
+// Current positions and Undo entries must both be safe to render and play.
+function restorePosition(entry, mode, twoPlayer) {
+  if (!isRecord(entry)) return null;
+  const board = restoreBoard(entry.board, mode, twoPlayer);
+  const tray = restoreTray(entry.tray, mode);
+  const score = entry.score === undefined ? 0 : entry.score;
+  const streak = entry.streak === undefined ? 0 : entry.streak;
+  const match = entry.match === undefined ? null : entry.match;
+  if (twoPlayer && isRecord(match) && match.consecutivePasses === undefined) {
+    match.consecutivePasses = match.emptyPasses;
+    delete match.emptyPasses;
+  }
+  if (!board || !tray || !isCount(score) || !isCount(streak)
+    || (twoPlayer ? !isValidMatch(match) : match !== null)) return null;
+  return { board, tray, score, streak, match };
+}
+
+// Bad run metadata cannot grant score eligibility, but need not erase a game.
+function restoreScoreRun(run, saved) {
+  if (!isRecord(run) || run.version !== 1 || run.rulesVersion !== 2
+    || typeof run.id !== "string" || !run.id || typeof run.defaultRules !== "boolean"
+    || run.board !== saved.board.type || run.mode !== (saved.timedMode ? "time-trial" : "solo")
+    || run.match !== (saved.aiOpponent ? "ai" : saved.match ? "two-player" : "solo")
+    || !Number.isSafeInteger(run.finishedScore) || run.finishedScore < -1) return null;
+  return run;
 }
 
 // Old timer saves could include cells whose points were already awarded.
@@ -2191,32 +2270,32 @@ function loadGame(matchMode = false, mode = getBoardMode()) {
   try {
     const key = twoPlayer ? (aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : storageKeys(mode).storageKey;
     const saved = JSON.parse(localStorage.getItem(key));
-    if (saved?.saveVersion > SAVE_VERSION) return null;
-    if (Boolean(saved?.aiOpponent) !== aiOpponent) return null;
-
-    // Keep games and Undo states saved before the pass rule changed.
-    if (twoPlayer) {
-      for (const entry of [saved, ...(saved?.history || [])]) {
-        if (entry?.match && entry.match.consecutivePasses === undefined) {
-          entry.match.consecutivePasses = entry.match.emptyPasses;
-          delete entry.match.emptyPasses;
-        }
-      }
+    if (!isRecord(saved)) return null;
+    if (saved.saveVersion !== undefined && (!isCount(saved.saveVersion) || saved.saveVersion > SAVE_VERSION)) return null;
+    if (saved.scoringVersion !== undefined && (!isCount(saved.scoringVersion) || saved.scoringVersion > 2)) return null;
+    for (const field of ["gameOver", "aiOpponent", "timedMode", "timerStarted"]) {
+      if (saved[field] === undefined) saved[field] = false;
+      if (typeof saved[field] !== "boolean") return null;
     }
-    if (twoPlayer ? !isValidMatch(saved?.match) : saved?.match) return null;
-
-    const board = restoreBoard(saved?.board, mode);
-    if (!board || board.type !== mode) return null;
-    const size = mode === "hex" ? board.radius + 1 : board.size;
-    if (!(mode === "hex" ? [4, 5, 6] : [6, 9, 12]).includes(size)) return null;
-    const expectedCells = Object.keys(createEmptyBoard(size, mode).cells);
-    const cells = board.cells;
-    if (!cells || Object.keys(cells).length !== expectedCells.length
-      || !expectedCells.every(key => cells[key] === 0 || cells[key] === 1
-        || (twoPlayer && cells[key] === 2))) return null;
-
-    saved.board = board;
-    for (const entry of saved.history || []) entry.board = restoreBoard(entry.board, mode);
+    if (saved.aiOpponent !== aiOpponent || (twoPlayer && saved.timedMode)
+      || (saved.timerStarted && !saved.timedMode)) return null;
+    if (saved.timeRemainingMs === undefined && !saved.timedMode) saved.timeRemainingMs = null;
+    if ((saved.timedMode || saved.timeRemainingMs !== null)
+      && (!Number.isFinite(saved.timeRemainingMs) || saved.timeRemainingMs < 0)) return null;
+    if (saved.restoredTrayItemUid != null && typeof saved.restoredTrayItemUid !== "string") return null;
+    const position = restorePosition(saved, mode, twoPlayer);
+    if (!position) return null;
+    Object.assign(saved, position);
+    if (saved.history === undefined) saved.history = [];
+    if (!Array.isArray(saved.history)) return null;
+    const history = [];
+    for (const entry of saved.history) {
+      const previous = restorePosition(entry, mode, twoPlayer);
+      if (!previous || previous.board.radius !== saved.board.radius || previous.board.size !== saved.board.size) return null;
+      history.push(previous);
+    }
+    saved.history = history;
+    saved.scoreRun = restoreScoreRun(saved.scoreRun, saved);
     if (finishSavedClear(saved)) {
       saved.saveVersion = SAVE_VERSION;
       saveGame(saved);
@@ -2477,6 +2556,7 @@ const elements = {
   timerDisplay: document.querySelector("#timerDisplay"),
   bestScore: document.querySelector("#bestScore"),
   bestScoreLabel: document.querySelector("#bestScoreLabel"),
+  saveStatus: document.querySelector("#saveStatus"),
   undoButton: document.querySelector("#undoButton"),
   passButton: document.querySelector("#passButton"),
   continueButton: document.querySelector("#continueButton"),
@@ -3662,7 +3742,7 @@ const {
   saveBestScore,
   saveModifiedBestScore,
   saveTimedBestScore,
-  saveGame,
+  saveGame: writeGame,
   animateClear,
   animateAiMove,
   buildBoard,
@@ -3785,6 +3865,15 @@ function render() {
   applyPreferences();
   renderTimer();
   scheduleAiMove();
+}
+
+// A failed write must not stop play or hide the fact that progress is unsaved.
+function saveGame(state) {
+  let bestSaved = true;
+  try { updateBestScore(); } catch { bestSaved = false; }
+  const gameSaved = writeGame(state);
+  elements.saveStatus.hidden = bestSaved && gameSaved;
+  return bestSaved && gameSaved;
 }
 
 function settingsAreModified() {
@@ -4000,7 +4089,6 @@ function placePiece(item, shape, originQ, originR) {
     prepareTray();
   }
   checkGameOver(false);
-  updateBestScore();
   saveGame(state);
   render();
   if (completed.zoneCount) animateClear(completed.cells, gained);
@@ -4056,22 +4144,22 @@ function updateBestScore() {
   if (state.match) return;
   if (activeTimed && settingsAreModified()) {
     if (state.score > timedModifiedBestScore) {
+      saveTimedBestScore(state.score, true);
       timedModifiedBestScore = state.score;
-      saveTimedBestScore(timedModifiedBestScore, true);
     }
   } else if (activeTimed) {
     if (state.score > timedBestScore) {
+      saveTimedBestScore(state.score, false);
       timedBestScore = state.score;
-      saveTimedBestScore(timedBestScore, false);
     }
   } else if (settingsAreModified()) {
     if (state.score > modifiedBestScore) {
+      saveModifiedBestScore(state.score);
       modifiedBestScore = state.score;
-      saveModifiedBestScore(modifiedBestScore);
     }
   } else if (state.score > bestScore) {
+    saveBestScore(state.score);
     bestScore = state.score;
-    saveBestScore(bestScore);
   }
 }
 
@@ -4202,8 +4290,8 @@ function finishTimeTrial() {
   cleanupDrag();
   state.timeRemainingMs = 0;
   state.gameOver = true;
-  updateBestScore();
   window.GenericBlockGame.finishScoreRun?.(state);
+  saveGame(state);
   render();
   showModal(
     "Time's up",
@@ -4211,7 +4299,6 @@ function finishTimeTrial() {
     "Play again",
     { gameOver: true, score: state.score, showUndo: false },
   );
-  saveGame(state);
 }
 
 // Starts a drag from the entire large tray slot, not just the colored cells.

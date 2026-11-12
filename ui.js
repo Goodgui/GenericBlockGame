@@ -26,6 +26,7 @@ const elements = {
   timerDisplay: document.querySelector("#timerDisplay"),
   bestScore: document.querySelector("#bestScore"),
   bestScoreLabel: document.querySelector("#bestScoreLabel"),
+  saveStatus: document.querySelector("#saveStatus"),
   undoButton: document.querySelector("#undoButton"),
   passButton: document.querySelector("#passButton"),
   continueButton: document.querySelector("#continueButton"),

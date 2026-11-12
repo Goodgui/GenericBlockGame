@@ -77,6 +77,14 @@ button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .topbar { min-height: 52px; }
 .topbar { padding: 0 18px; }
+.topbar > button { flex-shrink: 0; }
+.save-status {
+  max-width: 16rem;
+  margin: 0 8px;
+  color: #f0c38a;
+  font-size: 12px;
+  text-align: center;
+}
 .square-mode { --hex-points: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 
 .topbar-spacer { width: 44px; }

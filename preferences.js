@@ -81,6 +81,7 @@ function loadGlobalPreferences() {
   if (saved) return pickSettings(saved, defaults);
   const legacy = readSettings(storageKeys(getBoardMode()).settingsKey)
     || readSettings(storageKeys(getBoardMode() === "hex" ? "square" : "hex").settingsKey) || {};
+  if (!Object.keys(defaults).some(key => key in legacy)) return defaults;
   const global = pickSettings(legacy, defaults);
   // Replace the old offset defaults while keeping custom values.
   for (const key of ["dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset"]) {
@@ -105,12 +106,16 @@ function loadPreferences(mode = getBoardMode()) {
   if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
     preferences.snapOverlapMultiplier = 1.5;
   }
+  preferences.boardSettingsVersion = 1;
   if (preferences.frequencyVersion !== 2) {
-    for (const setting of Object.values(preferences.pieces)) delete setting.weight;
+    preferences.pieces = Object.fromEntries(Object.entries(preferences.pieces)
+      .map(([id, { weight, ...setting }]) => [id, setting]));
     preferences.frequencyVersion = 2;
   }
   const global = loadGlobalPreferences();
-  if (Object.keys(saved).length) localStorage.setItem(key, JSON.stringify(preferences));
+  const changed = Object.keys(saved).length !== Object.keys(preferences).length
+    || Object.entries(preferences).some(([name, value]) => JSON.stringify(value) !== JSON.stringify(saved[name]));
+  if (Object.keys(saved).length && changed) localStorage.setItem(key, JSON.stringify(preferences));
   return { ...preferences, ...global };
 }
 
