@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hex game checks</title>
+  <style>
+    body { max-width: 640px; margin: 30px auto; padding: 16px; font: 16px system-ui; }
+    button { display: block; min-height: 44px; margin: 12px 0; font: inherit; }
+  </style>
+</head>
+<body>
+  <h1>Hex game checks</h1>
+  <p>These buttons replace the hex game and settings on this browser origin with known boards. Square saves stay intact. Drag the first piece into the center gap, then check the score, Undo, and reload.</p>
+  <button type="button" data-case="chunk">Finish a fixed group (7 points)</button>
+  <button type="button" data-case="line">Finish a line (9 points)</button>
+  <button type="button" data-case="both">Finish a line and group (32 points)</button>
+  <button type="button" data-case="offGroup">Seven cells outside a fixed group (0 points)</button>
+  <button type="button" data-case="refill">Last tray piece, then refill</button>
+  <button type="button" data-case="gameOver">Fill the last gap, then no moves</button>
+  <button type="button" data-case="timed">Timed game (30 seconds)</button>
+  <button type="button" data-case="empty">Empty default board</button>
+  <button type="button" data-case="twoPlayer">2 Player: red starts, pass or place pieces</button>
+  <button type="button" data-case="versusClear">2 Player: blue completes red's line (9 points)</button>
+  <button type="button" data-case="versusRefill">2 Player: red's last piece switches to blue</button>
+  <button type="button" data-case="versusBlocked">2 Player: blocked board, pass twice to finish</button>
+  <button type="button" data-case="versusColors">2 Player: both colors and scores</button>
+  <script src="../config.js"></script>
+  <script src="../hex.js"></script>
+  <script src="../preferences.js"></script>
+  <script src="../shapes.js"></script>
+  <script src="../board.js"></script>
+  <script src="../scoring.js"></script>
+  <script src="../two-player.js"></script>
+  <script>
+    const game = window.GenericBlockGame;
+    function loadCase(name) {
+      game.setBoardMode("hex");
+      const preferences = game.defaultPreferences();
+      preferences.dragInitialOffset = 0;
+      preferences.dragMovingOffset = 0;
+      preferences.dragHorizontalOffset = 0;
+      preferences.timeTrialEnabled = name === "timed";
+      preferences.timeTrialSeconds = 30;
+      preferences.twoPlayerEnabled = name === "twoPlayer" || name.startsWith("versus");
+      game.savePreferences(preferences);
+      const board = game.createEmptyBoard();
+      const centerChunk = game.boardChunks(board).find(chunk => chunk.center === "0,0");
+      if (name === "chunk" || name === "both") {
+        for (const key of centerChunk.cells) board.cells[key] = 1;
+      }
+      if (name === "line" || name === "both") {
+        for (let q = -4; q <= 4; q += 1) board.cells[game.hexKey(q, 0)] = 1;
+      }
+      if (name === "offGroup") {
+        for (const [q, r] of [[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]]) {
+          board.cells[game.hexKey(q + 1, r)] = 1;
+        }
+      }
+      if (name === "gameOver") {
+        for (const key of Object.keys(board.cells)) {
+          const [q, r] = key.split(",").map(Number);
+          board.cells[key] = ((q - r) % 3 + 3) % 3 === 0 ? 0 : 1;
+        }
+        board.cells["1,0"] = 0;
+      }
+      board.cells["0,0"] = 0;
+      const match = preferences.twoPlayerEnabled ? game.createMatch() : null;
+      if (name === "versusClear") {
+        match.player = 1;
+        for (let q = -4; q <= 4; q += 1) if (q !== 0) board.cells[`${q},0`] = 1;
+      }
+      if (name === "versusBlocked") {
+        for (const key of Object.keys(board.cells)) board.cells[key] = 1;
+        match.scores = [7, 9];
+      }
+      if (name === "versusColors") {
+        match.player = 1;
+        match.scores = [7, 9];
+        for (const key of ["-2,0", "-1,0", "-2,1", "0,-2"]) board.cells[key] = 1;
+        for (const key of ["2,0", "2,-1", "1,1", "0,2"]) board.cells[key] = 2;
+      }
+      const tray = ["single", "line4", "diamond4"].map((shapeId, index) => ({
+        uid: `fixture-${index}`, shapeId, rotation: 0, used: name === "refill" && index > 0,
+      }));
+      if (name === "gameOver") tray[1].shapeId = tray[2].shapeId = "line4";
+      if (name === "versusRefill") {
+        tray[1].used = tray[2].used = true;
+        match.placed = 2;
+      }
+      const storageKey = match ? game.CONFIG.twoPlayerStorageKey : game.CONFIG.storageKey;
+      localStorage.setItem(storageKey, JSON.stringify({
+        board, tray, history: [], score: 0, streak: 0, scoringVersion: 2,
+        gameOver: false, timedMode: preferences.timeTrialEnabled,
+        timerStarted: false, timeRemainingMs: preferences.timeTrialEnabled ? 30000 : null,
+        match,
+      }));
+      location.href = "../index.html";
+    }
+    document.querySelectorAll("[data-case]").forEach(button => {
+      button.addEventListener("click", () => loadCase(button.dataset.case));
+    });
+  </script>
+  <h2 id="phone-layout">Phone layout</h2>
+  <label for="previewSize">Viewport</label>
+  <select id="previewSize">
+    <option value="320,640">320 by 640</option>
+    <option value="390,844">390 by 844</option>
+  </select>
+  <p><a href="../index.html">Open game</a></p>
+  <iframe id="phonePreview" title="Phone game preview" src="../index.html" width="320" height="640" style="display:block; border:1px solid; max-width:100%;"></iframe>
+  <script>
+    document.querySelector("#previewSize").addEventListener("change", event => {
+      const [width, height] = event.target.value.split(",");
+      const preview = document.querySelector("#phonePreview");
+      preview.width = width;
+      preview.height = height;
+    });
+  </script>
+</body>
+</html>

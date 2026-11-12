@@ -3,6 +3,16 @@
 (function () {
 const {
   CONFIG,
+  cloneBoard,
+  getBoardMode,
+  setBoardMode,
+  getBoardSide,
+  getBoardDimensions,
+  boardCellAt,
+  placementDistance,
+  rotationCount,
+  resetAllScores,
+  resetSavedGames,
   randomShape,
   getConfiguredShapes,
   shapeById,
@@ -12,6 +22,13 @@ const {
   canPlaceAnywhere,
   clearCells,
   createEmptyBoard,
+  createMatch,
+  cloneMatch,
+  matchPlayerColor,
+  scorePlacement,
+  recordMatchPlacement,
+  endMatchTurn,
+  chooseAiMove,
   fillShape,
   findCompletedCells,
   loadBestScore,
@@ -23,10 +40,11 @@ const {
   saveTimedBestScore,
   saveGame,
   animateClear,
+  animateAiMove,
   buildBoard,
   clearPreview,
   elements,
-  hideModal,
+  hideModal: hideModalView,
   makePiece,
   renderGame,
   renderPreview,
@@ -47,16 +65,64 @@ let timedModifiedBestScore = loadTimedBestScore(true);
 let drag = null;
 let timerInterval = null;
 let lastTimerTick = 0;
-let pendingClearCells = null;
+let placementView = null;
+let placementPending = false;
+let boardChangeId = 0;
+let aiTimeout = null;
+let stopAiFlight = () => {};
+let modalAction = startNewGame;
 
-function cellKey(row, col) {
-  return `${row},${col}`;
+function hideModal() {
+  hideModalView();
+  modalAction = startNewGame;
+  scheduleAiMove();
+}
+
+function isAiTurn() {
+  return Boolean(state.aiOpponent && state.match?.player === 1 && !state.gameOver);
+}
+
+function aiCanMove() {
+  return isAiTurn() && !placementPending && !document.hidden
+    && !elements.settingsPanel.classList.contains("is-open")
+    && !elements.modal.classList.contains("is-open")
+    && !elements.changelogModal.classList.contains("is-open");
+}
+
+function scheduleAiMove() {
+  window.clearTimeout(aiTimeout);
+  aiTimeout = null;
+  if (!aiCanMove()) return;
+  const changeId = boardChangeId;
+  aiTimeout = window.setTimeout(() => {
+    aiTimeout = null;
+    if (changeId !== boardChangeId || !aiCanMove()) return;
+    const move = chooseAiMove(state, loadPreferences().aiDifficulty);
+    if (!move) { passTurn(true); return; }
+    const item = state.tray.find(piece => piece.uid === move.uid && !piece.used);
+    if (!item) return;
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    if (!canPlace(state.board, shape, move.q, move.r)) return;
+    // Pending blocks other input and AI scheduling while the piece is moving.
+    placementPending = true;
+    stopAiFlight = animateAiMove(item, shape, move.q, move.r, () => {
+      stopAiFlight = () => {};
+      if (changeId !== boardChangeId) return;
+      placementPending = false;
+      placePiece(item, shape, move.q, move.r);
+    });
+  }, 400);
+}
+
+function cancelAiFlight() {
+  stopAiFlight();
+  stopAiFlight = () => {};
 }
 
 // Creates all mutable values for a completely new game.
 function createInitialState(timed = activeTimed) {
   const preferences = loadPreferences();
-  const size = preferences.boardWidth;
+  const size = preferences.boardSide;
   return {
     board: createEmptyBoard(size),
     score: 0,
@@ -65,6 +131,8 @@ function createInitialState(timed = activeTimed) {
     tray: [],
     history: [],
     gameOver: false,
+    match: preferences.twoPlayerEnabled || preferences.aiEnabled ? createMatch() : null,
+    aiOpponent: preferences.aiEnabled,
     timedMode: timed,
     timerStarted: false,
     timeRemainingMs: timed ? preferences.timeTrialSeconds * 1000 : null,
@@ -73,28 +141,21 @@ function createInitialState(timed = activeTimed) {
 
 // Supplies renderGame with the current board-aware placement check.
 function isShapePlaceable(shape) {
-  if (!pendingClearCells) {
-    return canPlaceAnywhere(state.board, shape, shapeDimensions(shape));
-  }
-
-  // During a clear animation, tray availability should reflect the board
-  // after those cells disappear, avoiding a brief incorrect gray state.
-  const projectedBoard = state.board.map(row => [...row]);
-  clearCells(projectedBoard, pendingClearCells);
-  return canPlaceAnywhere(projectedBoard, shape, shapeDimensions(shape));
+  return canPlaceAnywhere(state.board, shape);
 }
 
-function getPreviewClearCells(shape, originCol, originRow) {
-  const previewBoard = state.board.map(row => [...row]);
-  fillShape(previewBoard, shape, originCol, originRow);
+function getPreviewClearCells(shape, originQ, originR) {
+  const previewBoard = cloneBoard(state.board);
+  fillShape(previewBoard, shape, originQ, originR);
   const completed = findCompletedCells(previewBoard);
   return completed.zoneCount ? completed.cells : null;
 }
 
 function render() {
-  renderGame(state, activeBestScore(), activeBestScoreLabel(), isShapePlaceable, beginDrag);
+  renderGame(placementView || state, activeBestScore(), activeBestScoreLabel(), isShapePlaceable, beginDrag);
   applyPreferences();
   renderTimer();
+  scheduleAiMove();
 }
 
 function settingsAreModified() {
@@ -126,33 +187,83 @@ function applyPreferences() {
   CONFIG.drag.maxExtraLiftPx = preferences.dragMovingOffset;
   CONFIG.drag.maxHorizontalOffsetPx = preferences.dragHorizontalOffset;
   CONFIG.drag.invalidMoveResistance = Math.max(0, preferences.snapOverlapMultiplier - 1);
-  document.documentElement.style.setProperty("--piece-hue", preferences.pieceHue);
+  const view = placementView || state;
+  document.documentElement.style.setProperty("--piece-hue",
+    view.match ? (matchPlayerColor(view, view.match.player) === "red" ? 0 : 212) : preferences.pieceHue);
+  elements.passButton.hidden = !state.match;
+  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver || isAiTurn();
+  elements.undoButton.disabled = !canUndo();
+}
+
+function canUndo() {
+  return loadPreferences().undoEnabled && state.history.length > 0
+    && !placementPending && !drag && !isAiTurn()
+    && !(activeTimed && state.timerStarted && state.timeRemainingMs <= 0);
 }
 
 // Any setting change begins a clean run under the newly selected rules.
 function restartForSettingsChange() {
   const preferences = loadPreferences();
+  cleanupDrag();
+  cancelAiFlight();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
   stopTimer();
   activeTimed = preferences.timeTrialEnabled;
   state = createInitialState(activeTimed);
-  buildBoard(preferences.boardWidth);
+  hideModal();
+  buildBoard(preferences.boardSide);
   deliverTray();
 }
 
+function refreshBestScores() {
+  bestScore = loadBestScore();
+  modifiedBestScore = loadModifiedBestScore();
+  timedBestScore = loadTimedBestScore(false);
+  timedModifiedBestScore = loadTimedBestScore(true);
+}
+
+function switchBoardMode(mode) {
+  if (mode === getBoardMode()) return;
+  cleanupDrag();
+  cancelAiFlight();
+  stopTimer();
+  boardChangeId += 1;
+  placementView = null;
+  placementPending = false;
+  if (state.tray.length) saveGame(state);
+  setBoardMode(mode);
+  refreshBestScores();
+  const preferences = loadPreferences();
+  activeTimed = preferences.timeTrialEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(false);
+}
+
 // A new tray also becomes the earliest point that Undo may return to.
-function deliverTray() {
+function prepareTray() {
   const traySize = loadPreferences().traySize;
   state.tray = Array.from({ length: traySize }, (_, index) => ({
     uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
     shapeId: randomShape().id,
-    rotation: Math.floor(Math.random() * 4),
+    rotation: Math.floor(Math.random() * rotationCount()),
     used: false,
   }));
   ensureTrayHasPlaceablePiece();
   state.history = [];
-  render();
+  state.restoredTrayItemUid = null;
+}
+
+function showNewTray() {
   elements.tray.classList.add("new-tray");
   window.setTimeout(() => elements.tray.classList.remove("new-tray"), 360);
+}
+
+function deliverTray() {
+  prepareTray();
+  render();
+  showNewTray();
   saveGame(state);
   checkGameOver();
 }
@@ -163,9 +274,9 @@ function getPlaceableTrayItem(index) {
   const pool = enabledShapes.length ? enabledShapes : configuredShapes;
 
   for (const shape of pool) {
-    for (let rotation = 0; rotation < 4; rotation += 1) {
+    for (let rotation = 0; rotation < rotationCount(); rotation += 1) {
       const rotatedShape = rotateShape(shape, rotation);
-      if (canPlaceAnywhere(state.board, rotatedShape, shapeDimensions(rotatedShape))) {
+      if (canPlaceAnywhere(state.board, rotatedShape)) {
         return {
           uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
           shapeId: shape.id,
@@ -182,7 +293,7 @@ function getPlaceableTrayItem(index) {
 function ensureTrayHasPlaceablePiece() {
   const hasPlaceablePiece = state.tray.some(item => {
     const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
-    return canPlaceAnywhere(state.board, shape, shapeDimensions(shape));
+    return canPlaceAnywhere(state.board, shape);
   });
   if (hasPlaceablePiece) return;
 
@@ -193,65 +304,67 @@ function ensureTrayHasPlaceablePiece() {
 // Stores the exact state before a move so Undo can restore it.
 function snapshot() {
   return {
-    board: state.board.map(row => [...row]),
+    board: cloneBoard(state.board),
     score: state.score,
     streak: state.streak,
     tray: state.tray.map(item => ({ ...item })),
+    match: cloneMatch(state.match),
   };
 }
 
-function placePiece(item, shape, originCol, originRow) {
+function placePiece(item, shape, originQ, originR) {
+  if (state.gameOver || placementPending || expireTimeTrialIfNeeded()) return;
+  if (item.used || !canPlace(state.board, shape, originQ, originR)) return;
+  placementPending = true;
+  const changeId = boardChangeId;
   if (activeTimed && !state.timerStarted) {
     state.timerStarted = true;
     startTimer();
   }
   state.history.push(snapshot());
-  fillShape(state.board, shape, originCol, originRow);
+  fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
   item.used = true;
 
   const completed = findCompletedCells(state.board);
-  if (completed.zoneCount) {
-    state.streak += 1;
-
-    // Each zone is worth one point per square. Multiple zones also multiply
-    // the clear, while consecutive scoring moves increase the streak.
-    const gained = completed.pointValue * completed.zoneCount * state.streak;
-    state.score += gained;
-    // Show the entire newly placed shape before its completed cells animate out.
-    pendingClearCells = completed.cells;
-    render();
-    animateClear(completed.cells, gained, state.board[0].length);
-    // Keep filled cells visible until their removal animation completes.
-    window.setTimeout(() => {
-      clearCells(state.board, completed.cells);
-      pendingClearCells = null;
-      finishPlacement();
-    }, 280);
-  } else {
-    state.streak = 0;
-    finishPlacement();
+  const matchPoints = state.match ? recordMatchPlacement(state.match, completed) : 0;
+  const scored = scorePlacement(state.streak, completed);
+  state.streak = scored.streak;
+  const gained = state.match ? matchPoints : scored.points;
+  state.score += gained;
+  const trayFinished = state.tray.every(piece => piece.used);
+  // Keep the old board and tray only for display. Saves contain the whole move.
+  if (completed.zoneCount || trayFinished) {
+    placementView = { ...state, board: cloneBoard(state.board),
+      tray: state.tray.map(piece => ({ ...piece })), match: cloneMatch(state.match) };
   }
-
+  clearCells(state.board, completed.cells);
+  if (trayFinished) {
+    if (state.match) endMatchTurn(state.match);
+    prepareTray();
+  }
+  checkGameOver(false);
   updateBestScore();
-  elements.score.textContent = state.score.toLocaleString();
-  elements.bestScore.textContent = activeBestScore().toLocaleString();
-  elements.bestScoreLabel.textContent = activeBestScoreLabel();
+  saveGame(state);
+  render();
+  if (completed.zoneCount) animateClear(completed.cells, gained);
+  const delay = (completed.zoneCount ? 280 : 0) + (trayFinished ? 80 : 0);
+  if (delay) {
+    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayFinished); }, delay);
+  } else finishPlacement();
 }
 
-// Refresh placement checks only after any clear animation has completed.
-function finishPlacement() {
+// Ending an effect never changes the saved board, tray, or player.
+function finishPlacement(trayFinished = false) {
+  placementView = null;
+  placementPending = false;
   render();
-  saveGame(state);
-  if (state.gameOver) return;
-  if (state.tray.every(piece => piece.used)) {
-    window.setTimeout(deliverTray, 80);
-  } else {
-    checkGameOver();
-  }
+  if (trayFinished) showNewTray();
+  if (state.gameOver) showCurrentResult();
 }
 
 // Undo history is discarded whenever a new tray is delivered.
 function undo() {
+  if (expireTimeTrialIfNeeded() || !canUndo()) return;
   const previous = state.history.pop();
   if (!previous) return;
 
@@ -264,6 +377,7 @@ function undo() {
   state.score = previous.score;
   state.streak = previous.streak;
   state.tray = previous.tray;
+  state.match = cloneMatch(previous.match);
   state.history = remainingHistory;
   state.restoredTrayItemUid = restoredItem?.uid || null;
   state.gameOver = false;
@@ -278,6 +392,7 @@ function undo() {
 }
 
 function updateBestScore() {
+  if (state.match) return;
   if (activeTimed && settingsAreModified()) {
     if (state.score > timedModifiedBestScore) {
       timedModifiedBestScore = state.score;
@@ -299,7 +414,8 @@ function updateBestScore() {
   }
 }
 
-function checkGameOver() {
+function checkGameOver(showResult = true) {
+  if (state.match) return;
   const remaining = state.tray.filter(item => !item.used);
   const noMovesRemain = remaining.length
     && remaining.every(item => {
@@ -311,17 +427,50 @@ function checkGameOver() {
 
   state.gameOver = true;
   stopTimer();
-  showModal(
-    "No more moves",
-    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
-    "Play again",
-    {
-      gameOver: true,
-      score: state.score,
-      showUndo: loadPreferences().undoEnabled && state.history.length > 0,
-    },
-  );
+  if (showResult) showCurrentResult();
   saveGame(state);
+}
+
+function showMatchResult() {
+  const [firstScore, secondScore] = state.match.scores;
+  const firstName = state.aiOpponent ? "You" : "Red";
+  const secondName = state.aiOpponent ? "AI" : "Blue";
+  const result = firstScore === secondScore ? "It's a draw" : firstScore > secondScore
+    ? (state.aiOpponent ? "You win" : "Red wins") : `${secondName} wins`;
+  modalAction = startNewGame;
+  showModal(result, `${firstName}: ${firstScore.toLocaleString()} points. ${secondName}: ${secondScore.toLocaleString()} points.`,
+    "Play again", { gameOver: true, match: true });
+}
+
+function passTurn(fromAi = false) {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  if (isAiTurn() && !fromAi) return;
+  hideModal();
+  state.gameOver = endMatchTurn(state.match, true);
+  state.history = [];
+  if (state.gameOver) {
+    render();
+    showMatchResult();
+    saveGame(state);
+  } else {
+    deliverTray();
+  }
+}
+
+function requestPass() {
+  if (!state.match || state.gameOver || placementPending || drag || isAiTurn()) return;
+  const canStillPlace = state.tray.some(item => !item.used
+    && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+  if (!canStillPlace) {
+    passTurn();
+    return;
+  }
+  const player = matchPlayerColor(state, state.match.player) === "red" ? "Red" : "Blue";
+  modalAction = passTurn;
+  const endsMatch = state.match.consecutivePasses === 1;
+  showModal(`${player}, pass?`,
+    `You can still place a piece. Discard the rest of this tray and end your turn?${endsMatch ? " This pass will end the game." : ""}`,
+    "Pass", { showCancel: true });
 }
 
 function formatTime(milliseconds) {
@@ -340,6 +489,7 @@ function renderTimer() {
 
 function startTimer() {
   stopTimer();
+  if (expireTimeTrialIfNeeded()) return;
   if (!activeTimed || !state.timerStarted || state.gameOver) {
     renderTimer();
     return;
@@ -347,9 +497,7 @@ function startTimer() {
 
   lastTimerTick = Date.now();
   timerInterval = window.setInterval(() => {
-    const now = Date.now();
-    state.timeRemainingMs = Math.max(0, state.timeRemainingMs - (now - lastTimerTick));
-    lastTimerTick = now;
+    updateRemainingTime();
     renderTimer();
 
     if (state.timeRemainingMs <= 0) {
@@ -360,12 +508,23 @@ function startTimer() {
   }, 250);
 }
 
+function updateRemainingTime() {
+  if (timerInterval === null) return;
+  const now = Date.now();
+  state.timeRemainingMs = Math.max(0, state.timeRemainingMs - (now - lastTimerTick));
+  lastTimerTick = now;
+}
+
+function expireTimeTrialIfNeeded() {
+  updateRemainingTime();
+  if (!activeTimed || !state.timerStarted || state.timeRemainingMs > 0) return false;
+  if (!state.gameOver) finishTimeTrial();
+  return true;
+}
+
 function stopTimer() {
-  if (timerInterval) {
-    state.timeRemainingMs = Math.max(
-      0,
-      state.timeRemainingMs - (Date.now() - lastTimerTick),
-    );
+  updateRemainingTime();
+  if (timerInterval !== null) {
     window.clearInterval(timerInterval);
   }
   timerInterval = null;
@@ -374,6 +533,9 @@ function stopTimer() {
 
 function finishTimeTrial() {
   stopTimer();
+  boardChangeId += 1;
+  placementView = null;
+  placementPending = false;
   cleanupDrag();
   state.timeRemainingMs = 0;
   state.gameOver = true;
@@ -390,9 +552,10 @@ function finishTimeTrial() {
 
 // Starts a drag from the entire large tray slot, not just the colored cells.
 function beginDrag(event) {
-  if (state.gameOver) return;
+  if (state.gameOver || placementPending || isAiTurn() || expireTimeTrialIfNeeded()) return;
   if (drag || event.isPrimary === false) return;
   if (event.button !== undefined && event.button !== 0) return;
+  if (elements.modal.classList.contains("is-open")) return;
 
   const slot = event.currentTarget;
   const item = state.tray.find(piece => piece.uid === slot.dataset.uid);
@@ -408,10 +571,10 @@ function beginDrag(event) {
 
   const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
   const boardRect = elements.board.getBoundingClientRect();
-  const boardSize = state.board.length;
-  const cellSize = boardRect.width / boardSize;
+  const boardSize = getBoardDimensions(state.board);
+  const cellSize = boardRect.width / boardSize.width;
   const piece = makePiece(shape, cellSize);
-  const { width, height } = shapeDimensions(shape);
+  const { width, height, minX, minY } = shapeDimensions(shape);
   const trayPiece = slot.querySelector(".piece");
   const trayPieceRect = trayPiece.getBoundingClientRect();
   const grabX = Math.max(
@@ -434,6 +597,8 @@ function beginDrag(event) {
     shape,
     slot,
     cellSize,
+    anchorX: -minX * cellSize,
+    anchorY: -minY * cellSize,
     startX: event.clientX,
     startY: event.clientY,
     grabRatioX: trayPieceRect.width ? grabX / trayPieceRect.width : 0.5,
@@ -443,11 +608,12 @@ function beginDrag(event) {
     layerHeight: height * cellSize,
     layerLeft: 0,
     layerTop: 0,
-    originCol: null,
-    originRow: null,
+    originQ: null,
+    originR: null,
     valid: false,
-    boardSize,
   };
+
+  applyPreferences();
 
   updateDrag(event);
   window.addEventListener("pointermove", updateDrag, { passive: false });
@@ -459,7 +625,12 @@ function beginDrag(event) {
 function liftForPointer(pointerY) {
   const movedUp = Math.max(0, drag.startY - pointerY);
   const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
-  return CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
+  const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
+  // Keep the bottom of the board within reach on a short landscape screen.
+  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
+  return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
+    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
+    : lift;
 }
 
 function updateDrag(event) {
@@ -484,42 +655,38 @@ function updateDrag(event) {
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 
-  // Snap the lifted piece's center to the nearest board-cell origin.
+  // Snap only the board preview. The dragged piece keeps following the pointer.
   const boardRect = elements.board.getBoundingClientRect();
-  const centerX = left + (width * drag.cellSize) / 2;
-  const centerY = top + (height * drag.cellSize) / 2;
-  const rawCol = (centerX - boardRect.left) / drag.cellSize - width / 2;
-  const rawRow = (centerY - boardRect.top) / drag.cellSize - height / 2;
-  const candidateCol = Math.round(rawCol);
-  const candidateRow = Math.round(rawRow);
+  const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
+  const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
+  const candidate = boardCellAt(state.board, anchorX, anchorY, drag.cellSize);
   const candidateIsValid = canPlace(
     state.board,
     drag.shape,
-    candidateCol,
-    candidateRow,
+    candidate.q,
+    candidate.r,
   );
 
   // Hold the previous valid origin when the nearest snap point is invalid.
   // Normal snapping changes at half a cell; resistance extends that boundary.
   if (drag.valid && !candidateIsValid) {
     const resistance = Math.max(0, CONFIG.drag.invalidMoveResistance);
-    const colDistance = Math.abs(rawCol - drag.originCol);
-    const rowDistance = Math.abs(rawRow - drag.originRow);
+    const distance = placementDistance(state.board, candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
     const releaseDistance = 0.5 + resistance;
 
-    if (colDistance < releaseDistance && rowDistance < releaseDistance) {
-      drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originCol, drag.originRow);
+    if (distance < releaseDistance) {
+      drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originQ, drag.originR);
       elements.dragLayer.classList.remove("invalid");
       renderPreview(drag);
       return;
     }
   }
 
-  drag.originCol = candidateCol;
-  drag.originRow = candidateRow;
+  drag.originQ = candidate.q;
+  drag.originR = candidate.r;
   drag.valid = candidateIsValid;
   drag.previewClearCells = drag.valid
-    ? getPreviewClearCells(drag.shape, drag.originCol, drag.originRow)
+    ? getPreviewClearCells(drag.shape, drag.originQ, drag.originR)
     : null;
 
   elements.dragLayer.classList.toggle("invalid", !drag.valid);
@@ -535,8 +702,8 @@ function endDrag(event) {
     placePiece(
       completedDrag.item,
       completedDrag.shape,
-      completedDrag.originCol,
-      completedDrag.originRow,
+      completedDrag.originQ,
+      completedDrag.originR,
     );
   } else {
     returnDragToTray();
@@ -565,6 +732,7 @@ function cleanupDrag() {
   elements.dragLayer.replaceChildren();
   clearPreview();
   drag = null;
+  applyPreferences();
 }
 
 function returnDragToTray() {
@@ -589,34 +757,43 @@ function returnDragToTray() {
 }
 
 function openResetModal() {
+  if (placementPending || drag) return;
+  modalAction = startNewGame;
   showModal(
     activeTimed ? "Restart time trial?" : "Restart game?",
     activeTimed
       ? "Your timed board, score, and countdown will restart."
-      : "Your current board and score will be replaced with a fresh game.",
+      : state.match ? `Restart the board and both scores? ${state.aiOpponent ? "You" : "Red"} will start.`
+        : "Your current board and score will be replaced with a fresh game.",
     "Restart",
+    { showCancel: true },
   );
 }
 
 function startNewGame() {
+  if (placementPending) return;
+  boardChangeId += 1;
+  window.clearTimeout(aiTimeout);
+  cleanupDrag();
   stopTimer();
   hideModal();
-  const hasFilledCells = state.board.some(row => row.some(Boolean));
+  const cells = new Set(Object.keys(state.board.cells).filter(key => state.board.cells[key]));
+  const hasFilledCells = cells.size > 0;
   if (hasFilledCells) {
-    const cells = new Set();
-    state.board.forEach((row, rowIndex) => {
-      row.forEach((filled, colIndex) => {
-        if (filled) cells.add(cellKey(rowIndex, colIndex));
-      });
-    });
-    animateClear(cells, 0, state.board.length);
-    window.setTimeout(resetGameState, 280);
+    placementPending = true;
+    const changeId = boardChangeId;
+    animateClear(cells, 0);
+    window.setTimeout(() => { if (changeId === boardChangeId) resetGameState(); }, 280);
   } else {
     resetGameState();
   }
 }
 
 function resetGameState() {
+  cancelAiFlight();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
   state = createInitialState(activeTimed);
   deliverTray();
 }
@@ -645,15 +822,28 @@ function updateFullscreenButton() {
 }
 
 elements.undoButton.addEventListener("click", undo);
+elements.passButton.addEventListener("click", requestPass);
 elements.resetButton.addEventListener("click", openResetModal);
 elements.settingsButton.addEventListener("click", openSettings);
-elements.modalButton.addEventListener("click", startNewGame);
+elements.modalButton.addEventListener("click", () => modalAction());
+elements.modalCancelButton.addEventListener("click", () => {
+  hideModal();
+  elements.passButton.focus();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
+});
 elements.modalUndoButton.addEventListener("click", undo);
 elements.fullscreenButton.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", updateFullscreenButton);
 window.addEventListener("blur", cancelDrag);
+window.addEventListener("resize", () => {
+  cleanupDrag();
+  if (!placementPending) render();
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) cancelDrag();
+  scheduleAiMove();
 });
 
 // Prevent browser selection, native dragging, long-press menus, and right click.
@@ -667,44 +857,71 @@ if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) 
 
 initSettings({
   onChange: restartForSettingsChange,
+  onBoardChange: switchBoardMode,
+  onClose: () => {
+    if (state.gameOver) showCurrentResult();
+    else scheduleAiMove();
+  },
+  onResetSettings: () => {
+    resetSavedGames();
+    restartForSettingsChange();
+  },
   onAccessibilityChange: applyPreferences,
+  onChangelogClose: scheduleAiMove,
   onResetBest: () => {
-    bestScore = 0;
-    modifiedBestScore = 0;
-    timedBestScore = 0;
-    timedModifiedBestScore = 0;
-    saveBestScore(0);
-    saveModifiedBestScore(0);
-    saveTimedBestScore(0, false);
-    saveTimedBestScore(0, true);
+    resetAllScores();
+    refreshBestScores();
     elements.bestScore.textContent = "0";
   },
 });
 
-// A saved board is restored only when it belongs to the selected mode.
-const savedState = loadGame();
-if (savedState?.tray?.length && savedState.timedMode === activeTimed) {
-  state = { ...createInitialState(activeTimed), ...savedState };
-  if (savedState.scoringVersion !== 2) {
-    state.streak = 0;
-    state.scoringVersion = 2;
-    saveGame(state);
+function showCurrentResult() {
+  if (state.match) {
+    showMatchResult();
+    return;
   }
-  buildBoard(state.board.length);
-  render();
-  if (state.gameOver) {
-    showModal(
-      activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
-      `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
-      "Play again",
-      { gameOver: true, score: state.score, showUndo: false },
-    );
-  } else {
-    hideModal();
-    if (state.timerStarted) startTimer();
-  }
-} else {
-  buildBoard(state.board.length);
-  render();
+  showModal(
+    activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
+    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
+    "Play again",
+    { gameOver: true, score: state.score, showUndo: canUndo() },
+  );
 }
+
+// Each board restores its own saved game when its tab becomes active.
+function restoreCurrentGame(showWelcome) {
+  const preferences = loadPreferences();
+  const savedState = loadGame(preferences.aiEnabled ? "ai" : Boolean(preferences.twoPlayerEnabled));
+  if (savedState?.tray?.length && savedState.timedMode === activeTimed
+    && getBoardSide(savedState.board) === preferences.boardSide) {
+    state = { ...createInitialState(activeTimed), ...savedState };
+    if (savedState.scoringVersion !== 2) {
+      state.streak = 0;
+      state.scoringVersion = 2;
+      saveGame(state);
+    }
+    buildBoard(getBoardSide(state.board));
+    render();
+    if (state.gameOver) {
+      if (showWelcome) showCurrentResult();
+      else hideModal();
+    } else {
+      hideModal();
+      if (state.tray.every(item => item.used)) {
+        if (state.match) endMatchTurn(state.match);
+        deliverTray();
+      }
+      if (state.timerStarted) startTimer();
+    }
+  } else {
+    buildBoard(getBoardSide(state.board));
+    if (showWelcome) render();
+    else {
+      hideModal();
+      deliverTray();
+    }
+  }
+}
+
+restoreCurrentGame(true);
 }());

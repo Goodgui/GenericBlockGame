@@ -5,10 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
   <title>GenericBlockGame</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="game-shell" aria-label="Block puzzle game">
+  <main class="game-shell" aria-label="Hex block puzzle game">
     <header class="topbar">
       <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">
         <svg aria-hidden="true" viewBox="0 0 24 24">
@@ -25,27 +26,41 @@
     </header>
 
     <section class="score-panel" aria-label="Score">
-      <div>
+      <div id="soloScore">
         <span class="score-label">Score</span>
         <span id="timerDisplay" class="timer-display" hidden>3:00</span>
         <strong id="score" class="score">0</strong>
       </div>
-      <div class="best-score">
+      <div id="bestScorePanel" class="best-score">
         <span id="bestScoreLabel" class="score-label">Best score</span>
         <strong id="bestScore">0</strong>
+      </div>
+      <div id="matchScoreboard" class="match-scoreboard" hidden aria-live="polite">
+        <div id="redPlayer" class="player-score red-player">
+          <span class="score-label">Red</span>
+          <strong id="redScore" class="score">0</strong>
+        </div>
+        <div id="bluePlayer" class="player-score blue-player">
+          <span class="score-label">Blue</span>
+          <strong id="blueScore" class="score">0</strong>
+        </div>
+        <p id="turnStatus" class="turn-status"></p>
       </div>
     </section>
 
     <section class="board-wrap">
-      <div id="board" class="board" role="grid" aria-label="9 by 9 game board"></div>
+      <div id="board" class="board" role="grid" aria-label="Hexagon game board"></div>
       <div id="scoreBurst" class="score-burst" aria-hidden="true"></div>
     </section>
 
     <section class="tray-section" aria-label="Piece tray">
       <div id="tray" class="tray"></div>
-      <button id="undoButton" class="undo-button" type="button" disabled>
-        <span aria-hidden="true">↶</span> Undo
-      </button>
+      <div class="tray-actions">
+        <button id="undoButton" class="undo-button" type="button" disabled>
+          <span aria-hidden="true">↶</span> Undo
+        </button>
+        <button id="passButton" class="undo-button pass-button" type="button" hidden>Pass</button>
+      </div>
     </section>
   </main>
 
@@ -60,23 +75,107 @@
 
       <div class="settings-content">
         <div class="settings-content-inner">
-        <section class="settings-section reset-settings-section">
-          <h3>Reset</h3>
-          <div class="reset-actions">
-            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
-            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
+        <div id="boardTypeSetting" class="segmented-control board-mode-tabs" role="tablist" aria-label="Board type">
+          <span class="segmented-indicator" aria-hidden="true"></span>
+          <button id="hexSettingsTab" type="button" data-board-mode="hex" role="tab" aria-controls="boardSettingsContent" aria-selected="true">Hex</button>
+          <button id="squareSettingsTab" type="button" data-board-mode="square" role="tab" aria-controls="boardSettingsContent" aria-selected="false">Square</button>
+        </div>
+        <div id="boardSettingsContent" role="tabpanel" aria-labelledby="hexSettingsTab">
+        <section class="settings-section">
+          <h3 class="general-heading">General</h3>
+          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
+            <span class="segmented-indicator" aria-hidden="true"></span>
+            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
+            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+            <button type="button" data-mode="two-player" role="radio">2 Player</button>
+            <button type="button" data-mode="ai" role="radio">VS AI</button>
           </div>
-          <div id="resetConfirmation" class="reset-confirmation" hidden>
-            <p id="resetConfirmationText"></p>
-            <div>
-              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
-              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
+          <label class="setting-toggle">
+            <span>Show undo button</span>
+            <input id="undoSetting" type="checkbox">
+          </label>
+          <div class="drag-settings">
+            <div id="aiDifficultyRow" class="board-size-setting" hidden>
+              <span>AI difficulty</span>
+              <div id="aiDifficultySetting" class="segmented-control" role="radiogroup" aria-label="AI difficulty">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-difficulty="easy" role="radio">Easy</button>
+                <button type="button" data-difficulty="medium" role="radio">Medium</button>
+                <button type="button" data-difficulty="hard" role="radio">Hard</button>
+              </div>
             </div>
+            <label id="timeTrialDurationRow">
+              <span>Time trial limit</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
+                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Tray size</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
+                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
+                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
+              </span>
+            </label>
+            <div class="board-size-setting">
+              <span id="boardSizeLabel">Cells per edge</span>
+              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Cells per edge">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-size="4" role="radio">4</button>
+                <button type="button" data-size="5" role="radio">5</button>
+                <button type="button" data-size="6" role="radio">6</button>
+              </div>
+            </div>
+            <label>
+              <span>Snap safety margin</span>
+              <span class="number-stepper multiplier-stepper">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
+                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
+              </span>
+            </label>
           </div>
         </section>
 
         <section class="settings-section">
+          <div class="settings-section-heading">
+            <div>
+              <h3>Pieces</h3>
+              <p>Enable pieces and change how often they appear.</p>
+            </div>
+          </div>
+          <div id="pieceSettingsList" class="piece-settings-list"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Create a piece</h3>
+          <p id="pieceEditorHint">Select hex cells to make a piece.</p>
+          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
+          <div class="designer-fields">
+            <label>
+              Name
+              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
+            </label>
+            <label>
+              Frequency
+              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
+            </label>
+          </div>
+          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
+          <div class="designer-actions">
+            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
+            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
+          </div>
+        </section>
+
+        </div>
+
+        <section class="settings-section">
           <h3>Accessibility</h3>
+          <p>Applies to Hex and Square.</p>
           <div class="drag-settings accessibility-settings">
             <label>
               <span>Pickup offset</span>
@@ -103,96 +202,33 @@
               </span>
             </label>
             <label class="hue-setting">
-              <span>Piece hue</span>
+              <span>Piece hue (single player)</span>
               <span class="hue-control">
                 <input id="pieceHueSetting" type="range" min="0" max="359" step="1" aria-label="Piece color hue">
                 <output id="pieceHueValue" for="pieceHueSetting">212°</output>
               </span>
             </label>
-            <label>
-              <span>Snap safety margin</span>
-              <span class="number-stepper multiplier-stepper">
-                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
-                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
-                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
-              </span>
-            </label>
           </div>
         </section>
 
-        <section class="settings-section">
-          <h3 class="general-heading">General</h3>
-          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
-            <span class="segmented-indicator" aria-hidden="true"></span>
-            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
-            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+        <section class="settings-section reset-settings-section">
+          <h3>Reset</h3>
+          <p>Applies to Hex and Square.</p>
+          <div class="reset-actions">
+            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
+            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
           </div>
-          <label class="setting-toggle">
-            <span>Show undo button</span>
-            <input id="undoSetting" type="checkbox">
-          </label>
-          <div class="drag-settings">
-            <label id="timeTrialDurationRow">
-              <span>Time trial limit</span>
-              <span class="number-stepper">
-                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
-                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
-                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
-              </span>
-            </label>
-            <label>
-              <span>Tray size</span>
-              <span class="number-stepper">
-                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
-                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
-                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
-              </span>
-            </label>
-            <div class="board-size-setting">
-              <span>Board size</span>
-              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Board size">
-                <span class="segmented-indicator" aria-hidden="true"></span>
-                <button type="button" data-size="6" role="radio">6×6</button>
-                <button type="button" data-size="9" role="radio">9×9</button>
-                <button type="button" data-size="12" role="radio">12×12</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="settings-section">
-          <div class="settings-section-heading">
+          <div id="resetConfirmation" class="reset-confirmation" hidden>
+            <p id="resetConfirmationText"></p>
             <div>
-              <h3>Pieces</h3>
-              <p>Enable pieces and change how often they appear.</p>
+              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
+              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
             </div>
-          </div>
-          <div id="pieceSettingsList" class="piece-settings-list"></div>
-        </section>
-
-        <section class="settings-section">
-          <h3>Create a piece</h3>
-          <p>Select any arrangement of squares in the 5×5 editor.</p>
-          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
-          <div class="designer-fields">
-            <label>
-              Name
-              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
-            </label>
-            <label>
-              Frequency
-              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
-            </label>
-          </div>
-          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
-          <div class="designer-actions">
-            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
-            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
           </div>
         </section>
 
         <footer class="settings-footer">
-          Version 1.1 | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
+          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a> | <button id="appVersion" type="button" aria-label="View change log" aria-haspopup="dialog" aria-controls="changelogModal"></button>
         </footer>
         </div>
       </div>
@@ -211,20 +247,36 @@
   <div id="modal" class="modal is-open" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-card">
       <h1 id="modalTitle">GenericBlockGame</h1>
-      <p id="modalText">Fit the pieces, clear rows, columns, and 3×3 squares, and keep your streak alive.</p>
+      <p id="modalText">Fit hex pieces. Clear full lines in three directions or an outlined seven-hex group. Edge cells outside the groups clear through lines.</p>
       <strong id="modalScore" class="modal-score" hidden>0</strong>
       <div class="modal-actions">
+        <button id="modalCancelButton" class="modal-undo-button" type="button" hidden>Cancel</button>
         <button id="modalUndoButton" class="modal-undo-button" type="button" hidden>↶ Undo</button>
         <button id="modalButton" class="primary-button" type="button">Start game</button>
       </div>
     </div>
   </div>
 
+  <div id="changelogModal" class="modal changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+    <div class="modal-card">
+      <h1 id="changelogTitle">What's new</h1>
+      <p id="changelogVersion"></p>
+      <ul id="changelogList" class="changelog-list"></ul>
+      <div class="modal-actions">
+        <button id="changelogButton" class="primary-button" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ordered classic scripts also work when this file is opened with file://. -->
   <script src="config.js"></script>
+  <script src="hex.js"></script>
   <script src="preferences.js"></script>
   <script src="shapes.js"></script>
   <script src="board.js"></script>
+  <script src="scoring.js"></script>
+  <script src="two-player.js"></script>
+  <script src="ai.js"></script>
   <script src="storage.js"></script>
   <script src="ui.js"></script>
   <script src="settings.js"></script>

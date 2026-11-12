@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings browser checks</title>
+  <style>
+    body { max-width: 900px; margin: 20px auto; padding: 12px; font: 16px system-ui; }
+    button, select { min-height: 44px; font: inherit; }
+    iframe { display: block; width: 390px; height: 844px; border: 0; }
+    .pass { color: #16632b; } .fail { color: #b02020; }
+  </style>
+</head>
+<body>
+  <h1>Settings browser checks</h1>
+  <p>Run on a separate local port. These checks restore this origin's game, scores, and settings when they finish.</p>
+  <select id="version" aria-label="Version"><option value="../index.html">Source game</option><option value="../exports/generic-block-game.html">Single HTML export</option></select>
+  <button id="run" type="button">Run checks</button>
+  <p id="summary" aria-live="polite">Ready.</p>
+  <ol id="results"></ol>
+  <iframe id="game" title="Game under test"></iframe>
+  <script src="../config.js"></script><script src="../hex.js"></script><script src="../preferences.js"></script>
+  <script src="../shapes.js"></script><script src="../board.js"></script><script src="../scoring.js"></script>
+  <script src="../two-player.js"></script>
+  <script src="../storage.js"></script><script src="settings-checks.js"></script>
+</body>
+</html>

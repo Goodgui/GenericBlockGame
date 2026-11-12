@@ -1,0 +1,4090 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0b1020">
+  <title>GenericBlockGame</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8dGl0bGU+U2V2ZW4gaGV4YWdvbnMgd2l0aCB0aHJlZSBibHVlIGNlbGxzIGF0IHRoZSBsb3dlciBsZWZ0PC90aXRsZT4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjODhhOGNlIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzUyNzQ5YyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxwb2x5Z29uIGlkPSJoZXgiIHBvaW50cz0iMCwtNDQgMzguMTA1LC0yMiAzOC4xMDUsMjIgMCw0NCAtMzguMTA1LDIyIC0zOC4xMDUsLTIyIi8+CiAgPC9kZWZzPgogIDxnIGZpbGw9IiMyMzI3MmUiIHN0cm9rZT0iI2E1YjJjNCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDx1c2UgaHJlZj0iI2hleCIgeD0iODkuODk1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxNjYuMTA1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSI1MS43OSIgeT0iMTI4IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjEyOCIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjIwNC4yMSIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iMTk0IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjE2Ni4xMDUiIHk9IjE5NCIgZmlsbD0idXJsKCNibHVlKSIvPgogIDwvZz4KPC9zdmc+Cg==">
+  <style>
+:root {
+  color-scheme: dark;
+  --bg: #111318;
+  --surface: #242830;
+  --surface-2: #343a45;
+  --grid: #555c68;
+  --grid-heavy: #747d8b;
+  --section-edge-light: #5d646f;
+  --section-edge-dark: #363e47;
+  --text: #f0f2f5;
+  --muted: #a1a7b0;
+  --accent: #6688ad;
+  --accent-bright: #7fa1c3;
+  --accent-dark: #4f7197;
+  --piece-hue: 212;
+  --piece-bright: hsl(var(--piece-hue) 38% 63%);
+  --piece-dark: hsl(var(--piece-hue) 32% 43%);
+  --valid: #8aa6bc;
+  --danger: #9a7378;
+  --board-rim: #363b44;
+  --board-edge: #585f6b;
+  --cell-empty: #22262d;
+  --cell-tint: #2e323c;
+  --cell-tint-light: #383d47;
+  --board-size: min(calc(100vw - 10px), 58vh, 580px);
+  --hex-points: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+  font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+*, *::before, *::after {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html, body {
+  min-height: 100%;
+  margin: 0;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--bg);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button { font: inherit; }
+[hidden] { display: none !important; }
+
+.game-shell {
+  width: min(100%, 720px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(14px, env(safe-area-inset-top)) 0 max(12px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar, .score-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.topbar { min-height: 52px; }
+.topbar { padding: 0 18px; }
+.square-mode { --hex-points: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+
+.topbar-spacer { width: 44px; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #c9d0e2;
+  font-weight: 750;
+  letter-spacing: .02em;
+}
+
+.icon-button, .undo-button {
+  border: 1px solid #454b56;
+  color: #c3c8d0;
+  background: #252930;
+  box-shadow: none;
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button svg,
+.fullscreen-button svg {
+  width: 21px;
+  height: 21px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.score-panel {
+  position: relative;
+  width: var(--board-size);
+  min-height: clamp(66px, 10vh, 105px);
+  margin: 0 auto 12px;
+  justify-content: center;
+  text-align: center;
+}
+
+.score-panel > div:first-child { align-self: center; }
+
+.score-label {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+
+.score-panel > div:first-child .score-label { display: none; }
+
+.score {
+  font-size: clamp(34px, 6vw, 48px);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-display {
+  display: block;
+  margin-bottom: 6px;
+  color: #c6ccd5;
+  font-size: clamp(34px, 8vw, 48px);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-display[hidden] { display: none; }
+.timer-display.ending { color: #e3a5ac; }
+
+.best-score {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  text-align: right;
+}
+.best-score strong { color: #d1d5dc; font-size: 20px; font-weight: 600; }
+
+.match-scoreboard { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 16px; text-align: center; }
+.player-score { border-bottom: 2px solid transparent; padding-bottom: 3px; }
+.player-score .score-label { color: inherit; }
+.red-player { color: #e89494; }
+.blue-player { color: #93bce8; }
+.active-player { border-bottom-color: currentColor; }
+.turn-status { grid-column: 1 / -1; margin: 2px 0 0; color: var(--text); font-size: 13px; }
+.cell[data-player="red"] { --piece-hue: 0; --piece-bright: hsl(0 55% 64%); --piece-dark: hsl(0 45% 43%); }
+.cell[data-player="blue"] { --piece-bright: hsl(212 38% 63%); --piece-dark: hsl(212 32% 43%); }
+
+.board-wrap {
+  position: relative;
+  width: var(--board-size);
+  margin: 0 auto;
+  padding: 10px;
+}
+
+.board {
+  position: relative;
+  width: 100%;
+  isolation: isolate;
+  background: transparent;
+}
+
+.cell {
+  position: absolute;
+  z-index: 2;
+  clip-path: var(--hex-points);
+  background: transparent;
+}
+
+.cell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
+  background: var(--cell-empty);
+}
+.cell[data-section-shade="1"]::before { background: var(--cell-tint); }
+.cell[data-section-shade="2"]::before { background: var(--cell-tint-light); }
+.board-frame, .chunk-outlines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.board-frame { z-index: 0; }
+.board-frame path { vector-effect: non-scaling-stroke; stroke-linejoin: miter; }
+.board-frame .frame-edge { fill: none; stroke: var(--board-edge); stroke-width: 22px; }
+.board-frame .frame-rim { fill: none; stroke: var(--board-rim); stroke-width: 20px; }
+.board-frame .frame-grid { fill: var(--grid); stroke: none; }
+.chunk-outlines { z-index: 1; }
+.chunk-outlines path { fill: none; stroke: var(--section-edge-light); stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.chunk-outlines path[data-filled="true"] { stroke: var(--section-edge-dark); }
+.chunk-outlines path[data-filled="true"],
+.chunk-outlines path.clear-fade[data-filled="false"] { transition: stroke 2s ease; }
+
+.square-mode .board .cell::before, .square-mode .board .cell::after {
+  inset: var(--cell-inset-top, 0.5px) var(--cell-inset-right, 0.5px) var(--cell-inset-bottom, 0.5px) var(--cell-inset-left, 0.5px);
+}
+
+.cell.filled::after, .piece-cell, .drag-cell {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
+  background: linear-gradient(180deg, var(--piece-bright), var(--piece-dark));
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.32), inset -1px -1px 0 rgba(40,64,90,.22);
+}
+
+.cell.preview-valid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
+  background: rgba(117,149,177,.5);
+  box-shadow: inset 0 0 0 2px var(--valid);
+}
+
+.cell.preview-invalid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
+  background: rgba(255,101,119,.25);
+  box-shadow: inset 0 0 0 2px rgba(255,101,119,.65);
+}
+
+.cell.preview-clear::after {
+  animation: preview-clear-pulse 1.1s ease-in-out infinite;
+}
+
+.piece-cell.drag-preview-clear {
+  animation: preview-clear-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes preview-clear-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.28); }
+}
+
+.cell.clearing::after { animation: clear-cell .28s ease both; }
+@keyframes clear-cell {
+  0% { transform: scale(1); opacity: 1; }
+  45% { transform: scale(.82); filter: brightness(1.55); }
+  100% { transform: scale(0); opacity: 0; }
+}
+
+.tray-section {
+  flex: 1;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0 18px;
+}
+
+.tray {
+  width: min(100%, 650px);
+  min-height: 135px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
+  gap: 3px;
+}
+
+.tray-slot {
+  position: relative;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.tray.dense-tray { min-height: 190px; }
+.tray.dense-tray .tray-slot { height: 94px; min-height: 94px; }
+
+.tray.new-tray .tray-slot { animation: tray-arrive .24s ease-out both; }
+.tray.new-tray .tray-slot:nth-child(2) { animation-delay: .045s; }
+.tray.new-tray .tray-slot:nth-child(3) { animation-delay: .09s; }
+
+@keyframes tray-arrive {
+  0% { transform: translateY(12px) scale(.94); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.tray-slot.restored-piece {
+  animation: tray-undo .22s ease-out both;
+}
+
+@keyframes tray-undo {
+  0% { transform: translateY(-8px) scale(.94); opacity: .35; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.tray-slot::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  transition: .18s ease;
+}
+
+.tray-slot.dragging { opacity: 0; cursor: grabbing; }
+.tray-slot.used { pointer-events: none; }
+.tray-slot.disabled { opacity: .24; filter: grayscale(1); cursor: not-allowed; }
+
+.piece {
+  position: relative;
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.piece-cell { inset: auto; }
+.tray-slot.disabled .piece-cell { background: #62697a; box-shadow: none; }
+
+.undo-button {
+  min-width: 116px;
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform .12s ease, background-color .12s ease;
+}
+
+.undo-button:active { transform: scale(.94); }
+.undo-button.rewinding { animation: undo-button .24s ease-out; }
+
+@keyframes undo-button {
+  0%, 100% { transform: rotate(0) scale(1); }
+  45% { transform: rotate(-16deg) scale(.92); }
+}
+
+.undo-button:disabled { opacity: .28; cursor: default; }
+.undo-button.setting-hidden { visibility: hidden; pointer-events: none; }
+.tray-actions { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+.settings-panel {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: none;
+  justify-content: flex-start;
+  background: rgba(4,5,7,.74);
+  backdrop-filter: blur(8px);
+}
+
+.settings-panel.is-open { display: flex; }
+
+.settings-card {
+  width: 100%;
+  height: 100dvh;
+  color: var(--text);
+  background: #1b1e24;
+  border-right: 0;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.settings-header {
+  height: max(60px, calc(52px + env(safe-area-inset-top)));
+  padding: env(safe-area-inset-top) 14px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #383e48;
+}
+
+.settings-header > *:first-child { margin-left: max(0px, calc((100% - var(--board-size)) / 2)); }
+.settings-header > *:last-child { margin-right: max(0px, calc((100% - var(--board-size)) / 2)); }
+
+.settings-header h2, .settings-section h3 { margin: 0; }
+.settings-close {
+  width: 42px;
+  height: 42px;
+  border: 0;
+  color: #cbd0d8;
+  background: transparent;
+  font-size: 32px;
+  cursor: pointer;
+}
+
+.settings-content {
+  height: calc(100dvh - max(60px, calc(52px + env(safe-area-inset-top))));
+  width: 100%;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-content-inner {
+  width: min(calc(100% - 28px), var(--board-size));
+  margin: 0 auto;
+  padding: 8px 0 max(80px, calc(30px + env(safe-area-inset-bottom)));
+}
+
+.settings-section {
+  padding: 18px 0 22px;
+  border-bottom: 1px solid #343a44;
+}
+
+.settings-section h3 { font-size: 18px; }
+.settings-section p { margin: 6px 0 16px; color: var(--muted); font-size: 14px; }
+.setting-toggle { min-height: 48px; display: flex; align-items: center; justify-content: space-between; margin: 10px 0; }
+.setting-toggle input { width: 24px; height: 24px; accent-color: var(--accent); }
+
+.drag-settings {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 18px;
+}
+
+.drag-settings label {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(154px, 48%);
+  align-items: center;
+  gap: 12px;
+}
+
+.drag-settings input {
+  width: 100%;
+  min-height: 44px;
+  padding: 5px 8px;
+  border: 1px solid #505865;
+  border-radius: 3px;
+  color: var(--text);
+  background: #171a1f;
+  text-align: center;
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.number-stepper {
+  display: grid;
+  grid-template-columns: 44px minmax(48px, 1fr) 44px;
+  gap: 4px;
+}
+
+.number-stepper button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #505865;
+  border-radius: 3px;
+  color: var(--text);
+  background: #303640;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.number-stepper button:active { background: #424a57; transform: scale(.95); }
+
+.board-size-setting {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.segmented-control {
+  --selected-index: 1;
+  position: relative;
+  height: 48px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  padding: 3px;
+  border: 1px solid #505865;
+  border-radius: 6px;
+  background: #171a1f;
+  overflow: hidden;
+}
+
+.segmented-indicator {
+  position: absolute;
+  z-index: 0;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--segment-count, 3));
+  border-radius: 4px;
+  background: var(--accent-dark);
+  transform: translateX(calc(var(--selected-index) * 100%));
+  transition: transform .18s ease;
+}
+
+.segmented-control button {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 700;
+}
+
+.segmented-control button.selected { color: white; }
+
+.mode-segmented-control {
+  grid-template-columns: repeat(var(--segment-count, 3), 1fr);
+  margin-bottom: 12px;
+}
+
+.mode-segmented-control .segmented-indicator {
+  width: calc((100% - 6px) / var(--segment-count, 3));
+}
+
+.tray[aria-busy="true"] .tray-slot { cursor: default; }
+
+.board-mode-tabs { --segment-count: 2; grid-template-columns: repeat(2, 1fr); margin-bottom: 22px; }
+.segmented-control button[aria-selected="true"] { color: white; }
+.drag-settings [hidden], .mode-segmented-control [hidden] { display: none; }
+
+.general-heading { margin-bottom: 12px !important; }
+
+.multiplier-stepper { position: relative; }
+.multiplier-stepper::after {
+  content: "×";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin-left: 17px;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.multiplier-stepper input { padding-right: 18px; }
+
+.settings-action {
+  min-height: 46px;
+  padding: 0 16px;
+  border: 1px solid #505865;
+  border-radius: 4px;
+  color: #dce0e6;
+  background: #292e36;
+  cursor: pointer;
+}
+.danger-action { color: #e3a5ac; border-color: #704b51; }
+.primary-setting-action { color: white; background: var(--accent-dark); border-color: var(--accent-bright); }
+
+.reset-settings-section { padding-top: 10px; }
+.reset-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.reset-confirmation {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #704b51;
+  background: #2b2328;
+}
+.reset-confirmation[hidden] { display: none; }
+.reset-confirmation p { margin: 0 0 12px; color: #e1c4c8; }
+.reset-confirmation > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.piece-settings-list { display: grid; gap: 8px; }
+.piece-setting-row {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: 30px 48px minmax(0, 1fr) minmax(142px, 45%) 34px;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 8px;
+  background: #242830;
+  border: 1px solid #343a44;
+}
+.piece-setting-row > input[type="checkbox"] { width: 23px; height: 23px; accent-color: var(--accent); }
+.settings-piece-preview { display: grid; place-items: center; }
+
+.hue-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+}
+
+.drag-settings .hue-control input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: hsl(var(--piece-hue) 55% 58%);
+}
+
+.hue-control output {
+  color: var(--text);
+  text-align: right;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.piece-setting-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.frequency-input, .designer-fields input {
+  width: 100%;
+  min-height: 34px;
+  padding: 5px 7px;
+  border: 1px solid #505865;
+  border-radius: 3px;
+  color: var(--text);
+  background: #171a1f;
+}
+.frequency-control {
+  display: grid;
+  grid-template-columns: 44px minmax(42px, 1fr) 44px;
+  gap: 4px;
+}
+.frequency-input {
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 2px;
+  text-align: center;
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Remove browser number spinners and keep values visually centered. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.number-stepper input,
+.frequency-control input {
+  display: block;
+  height: 44px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.frequency-button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #505865;
+  border-radius: 3px;
+  color: var(--text);
+  background: #303640;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+.frequency-button:active { background: #424a57; transform: scale(.95); }
+.remove-piece-button { width: 34px; height: 42px; padding: 0; border: 0; color: #d6959d; background: transparent; font-size: 22px; cursor: pointer; }
+
+.shape-editor {
+  position: relative;
+  width: min(100%, 340px);
+  margin: 12px auto 18px;
+}
+.shape-editor button {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  clip-path: var(--hex-points);
+  background: #292e36;
+  box-shadow: inset 0 0 0 1px var(--grid);
+  cursor: pointer;
+}
+.shape-editor button::after { content: ""; position: absolute; inset: 2px; clip-path: var(--hex-points); background: #343b47; }
+.shape-editor button.selected::after { background: var(--accent-bright); }
+.shape-editor button:focus-visible::after { background: #abb9cc; }
+.shape-editor button.selected { background: var(--accent); box-shadow: inset 0 0 0 2px var(--accent-bright); }
+.designer-fields { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: 8px; }
+.designer-fields label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.designer-fields input { min-height: 44px; font-size: 16px; }
+.designer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.designer-actions .settings-action { flex: 1; }
+.designer-message { min-height: 20px; margin-top: 10px; color: #d9a0a7; font-size: 13px; }
+
+.settings-footer {
+  padding: 28px 0 max(10px, env(safe-area-inset-bottom));
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+.settings-footer a { color: var(--accent-bright); }
+
+#appVersion {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-bright);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.fullscreen-button {
+  position: fixed;
+  z-index: 40;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #454b56;
+  border-radius: 6px;
+  color: #c3c8d0;
+  background: #252930;
+  font-size: 25px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fullscreen-button:hover { background: #30353e; }
+.fullscreen-button:active { transform: scale(.94); }
+.fullscreen-button .fullscreen-exit { display: none; }
+.fullscreen-button.is-fullscreen .fullscreen-enter { display: none; }
+.fullscreen-button.is-fullscreen .fullscreen-exit { display: block; }
+.fullscreen-button.unsupported { display: none; }
+
+.drag-layer {
+  position: fixed;
+  z-index: 30;
+  left: 0;
+  top: 0;
+  display: none;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 7px rgba(49,57,67,.26));
+}
+
+.drag-layer.active { display: block; }
+.drag-layer.returning { transition: transform .04s ease-out; }
+.drag-layer.ai-moving { transition: transform .42s cubic-bezier(.3, .7, .25, 1); }
+.drag-cell { inset: 0; border-radius: 0; }
+.drag-layer.invalid { opacity: .6; filter: grayscale(.55) drop-shadow(0 8px 7px rgba(49,57,67,.2)); }
+
+.score-burst {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  top: 45%;
+  color: #d9fff7;
+  font-size: 28px;
+  font-weight: 900;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 0 4px 18px #0fcba2;
+}
+
+.score-burst.show { animation: burst .7s ease-out; }
+@keyframes burst { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.7); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60px) scale(1.15); } }
+
+.modal {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: rgba(4,5,7,.7);
+  backdrop-filter: blur(12px);
+}
+
+.modal.is-open { display: grid; }
+
+.modal.game-over-modal {
+  place-items: start center;
+  padding-top: max(72px, calc(env(safe-area-inset-top) + 62px));
+  background: rgba(4,5,7,.3);
+  backdrop-filter: blur(3px);
+}
+
+.modal.game-over-modal .modal-card {
+  width: min(calc(100% - 28px), 390px);
+  padding: 18px 20px 20px;
+}
+
+.modal.game-over-modal .modal-card h1 { margin-bottom: 4px; font-size: 24px; }
+.modal.game-over-modal .modal-card p { margin-bottom: 8px; font-size: 13px; }
+
+.modal-score {
+  display: block;
+  margin: 2px 0 14px;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.modal-score[hidden] { display: none; }
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.modal-undo-button {
+  min-height: 50px;
+  padding: 0 20px;
+  border: 1px solid #505865;
+  border-radius: 6px;
+  color: #dce0e6;
+  background: #292e36;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.modal-undo-button[hidden] { display: none; }
+
+.modal-card {
+  width: min(100%, 420px);
+  padding: 38px 30px 30px;
+  text-align: center;
+  border: 1px solid #4a505b;
+  border-radius: 10px;
+  background: #22262d;
+  box-shadow: 0 20px 60px rgba(0,0,0,.48);
+}
+
+.changelog-modal { z-index: 130; }
+.changelog-modal .modal-card {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.changelog-modal .modal-card p { margin-bottom: 14px; }
+.changelog-list {
+  margin: 0 auto 26px;
+  padding-left: 20px;
+  max-width: 330px;
+  color: #c3c8d0;
+  text-align: left;
+  line-height: 1.5;
+}
+.changelog-list li + li { margin-top: 6px; }
+
+.modal-card h1 { margin: 0 0 10px; font-size: 32px; }
+.modal-card p { margin: 0 auto 26px; max-width: 330px; color: #a8aeb8; line-height: 1.55; }
+
+.primary-button {
+  min-width: 180px;
+  min-height: 50px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 6px;
+  color: white;
+  background: linear-gradient(145deg, var(--accent-bright), var(--accent-dark));
+  box-shadow: 0 5px 14px rgba(62,89,118,.24);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+@media (max-height: 760px) {
+  :root { --board-size: min(calc(100vw - 10px), 52vh, 500px); }
+  .game-shell { padding-top: 10px; }
+  .score-panel { margin-top: 2px; margin-bottom: 8px; }
+  .score { font-size: 32px; }
+  .tray-section { min-height: 142px; }
+  .tray, .tray-slot { min-height: 100px; }
+  .tray-slot { height: 100px; }
+}
+
+@media (min-height: 761px) {
+  .score-panel { margin-top: -10px; margin-bottom: 8px; }
+}
+
+@media (max-width: 420px) {
+  .best-score { max-width: 34%; }
+  .best-score .score-label { font-size: 12px; line-height: 1.2; }
+  .piece-setting-row { grid-template-columns: 24px 48px minmax(0, 1fr) 34px; }
+  .piece-setting-row > input { grid-column: 1; grid-row: 1; }
+  .settings-piece-preview { grid-column: 2; grid-row: 1; }
+  .piece-setting-name { grid-column: 3; grid-row: 1; }
+  .piece-setting-row .frequency-control { grid-column: 2 / 5; grid-row: 2; }
+  .remove-piece-button { grid-column: 4; grid-row: 1; }
+
+  html:not(:fullscreen):not(:-webkit-full-screen) .game-shell {
+    padding-top: max(9px, env(safe-area-inset-top));
+  }
+
+  html:not(:fullscreen):not(:-webkit-full-screen) .topbar {
+    min-height: 48px;
+  }
+
+  html:not(:fullscreen):not(:-webkit-full-screen) .score-panel {
+    min-height: 60px;
+    margin-top: -7px;
+    margin-bottom: 7px;
+  }
+}
+
+@media (min-width: 760px) {
+  .tray-slot { height: 140px; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --board-size: min(calc(100dvh - 72px), 45vw); }
+  .game-shell {
+    width: min(100%, 900px);
+    height: 100dvh;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    grid-template-rows: 44px 72px minmax(0, 1fr);
+    padding: max(4px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+  .topbar { grid-column: 1 / -1; min-height: 44px; }
+  .board-wrap { grid-column: 1; grid-row: 2 / 4; align-self: center; }
+  .score-panel { grid-column: 2; grid-row: 2; width: auto; min-height: 0; margin: 0 14px; justify-content: space-between; text-align: left; }
+  .best-score { position: static; }
+  .score { font-size: 28px; }
+  .timer-display { margin-bottom: 0; font-size: 24px; }
+  .tray-section { grid-column: 2; grid-row: 3; min-height: 0; padding: 0 14px; gap: 6px; }
+  .tray { height: auto; min-height: 84px; }
+  .tray-slot { min-height: 84px; height: 84px; }
+  .tray.dense-tray { min-height: 0; }
+  .tray.dense-tray .tray-slot { min-height: 68px; height: 68px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; }
+}
+
+</style>
+</head>
+<body>
+  <main class="game-shell" aria-label="Hex block puzzle game">
+    <header class="topbar">
+      <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5Z"></path>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
+        </svg>
+      </button>
+      <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 4v6h6"></path>
+          <path d="M5.5 15.5A8 8 0 1 0 6 7.5L4 10"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="score-panel" aria-label="Score">
+      <div id="soloScore">
+        <span class="score-label">Score</span>
+        <span id="timerDisplay" class="timer-display" hidden>3:00</span>
+        <strong id="score" class="score">0</strong>
+      </div>
+      <div id="bestScorePanel" class="best-score">
+        <span id="bestScoreLabel" class="score-label">Best score</span>
+        <strong id="bestScore">0</strong>
+      </div>
+      <div id="matchScoreboard" class="match-scoreboard" hidden aria-live="polite">
+        <div id="redPlayer" class="player-score red-player">
+          <span class="score-label">Red</span>
+          <strong id="redScore" class="score">0</strong>
+        </div>
+        <div id="bluePlayer" class="player-score blue-player">
+          <span class="score-label">Blue</span>
+          <strong id="blueScore" class="score">0</strong>
+        </div>
+        <p id="turnStatus" class="turn-status"></p>
+      </div>
+    </section>
+
+    <section class="board-wrap">
+      <div id="board" class="board" role="grid" aria-label="Hexagon game board"></div>
+      <div id="scoreBurst" class="score-burst" aria-hidden="true"></div>
+    </section>
+
+    <section class="tray-section" aria-label="Piece tray">
+      <div id="tray" class="tray"></div>
+      <div class="tray-actions">
+        <button id="undoButton" class="undo-button" type="button" disabled>
+          <span aria-hidden="true">↶</span> Undo
+        </button>
+        <button id="passButton" class="undo-button pass-button" type="button" hidden>Pass</button>
+      </div>
+    </section>
+  </main>
+
+  <div id="dragLayer" class="drag-layer" aria-hidden="true"></div>
+
+  <section id="settingsPanel" class="settings-panel" aria-hidden="true" aria-labelledby="settingsTitle">
+    <div class="settings-card">
+      <header class="settings-header">
+        <h2 id="settingsTitle">Settings</h2>
+        <button id="settingsCloseButton" class="settings-close" type="button" aria-label="Close settings">×</button>
+      </header>
+
+      <div class="settings-content">
+        <div class="settings-content-inner">
+        <div id="boardTypeSetting" class="segmented-control board-mode-tabs" role="tablist" aria-label="Board type">
+          <span class="segmented-indicator" aria-hidden="true"></span>
+          <button id="hexSettingsTab" type="button" data-board-mode="hex" role="tab" aria-controls="boardSettingsContent" aria-selected="true">Hex</button>
+          <button id="squareSettingsTab" type="button" data-board-mode="square" role="tab" aria-controls="boardSettingsContent" aria-selected="false">Square</button>
+        </div>
+        <div id="boardSettingsContent" role="tabpanel" aria-labelledby="hexSettingsTab">
+        <section class="settings-section">
+          <h3 class="general-heading">General</h3>
+          <div id="gameModeSetting" class="segmented-control mode-segmented-control" role="radiogroup" aria-label="Game mode">
+            <span class="segmented-indicator" aria-hidden="true"></span>
+            <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
+            <button type="button" data-mode="timed" role="radio">Time Trial</button>
+            <button type="button" data-mode="two-player" role="radio">2 Player</button>
+            <button type="button" data-mode="ai" role="radio">VS AI</button>
+          </div>
+          <label class="setting-toggle">
+            <span>Show undo button</span>
+            <input id="undoSetting" type="checkbox">
+          </label>
+          <div class="drag-settings">
+            <div id="aiDifficultyRow" class="board-size-setting" hidden>
+              <span>AI difficulty</span>
+              <div id="aiDifficultySetting" class="segmented-control" role="radiogroup" aria-label="AI difficulty">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-difficulty="easy" role="radio">Easy</button>
+                <button type="button" data-difficulty="medium" role="radio">Medium</button>
+                <button type="button" data-difficulty="hard" role="radio">Hard</button>
+              </div>
+            </div>
+            <label id="timeTrialDurationRow">
+              <span>Time trial limit</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="-30" aria-label="Decrease time limit">−</button>
+                <input id="timeTrialDurationSetting" type="number" min="30" max="600" step="30">
+                <button type="button" data-step-target="timeTrialDurationSetting" data-step="30" aria-label="Increase time limit">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Tray size</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="traySizeSetting" data-step="-1" aria-label="Decrease tray size">−</button>
+                <input id="traySizeSetting" type="number" min="1" max="8" step="1">
+                <button type="button" data-step-target="traySizeSetting" data-step="1" aria-label="Increase tray size">+</button>
+              </span>
+            </label>
+            <div class="board-size-setting">
+              <span id="boardSizeLabel">Cells per edge</span>
+              <div id="boardSizeSetting" class="segmented-control" role="radiogroup" aria-label="Cells per edge">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-size="4" role="radio">4</button>
+                <button type="button" data-size="5" role="radio">5</button>
+                <button type="button" data-size="6" role="radio">6</button>
+              </div>
+            </div>
+            <label>
+              <span>Snap safety margin</span>
+              <span class="number-stepper multiplier-stepper">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="-0.1" aria-label="Decrease snap safety margin">−</button>
+                <input id="snapOverlapSetting" type="number" min="1" max="3" step="0.1">
+                <button type="button" data-step-target="snapOverlapSetting" data-step="0.1" aria-label="Increase snap safety margin">+</button>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <div class="settings-section-heading">
+            <div>
+              <h3>Pieces</h3>
+              <p>Enable pieces and change how often they appear.</p>
+            </div>
+          </div>
+          <div id="pieceSettingsList" class="piece-settings-list"></div>
+        </section>
+
+        <section class="settings-section">
+          <h3>Create a piece</h3>
+          <p id="pieceEditorHint">Select hex cells to make a piece.</p>
+          <div id="shapeEditor" class="shape-editor" aria-label="Custom piece editor"></div>
+          <div class="designer-fields">
+            <label>
+              Name
+              <input id="customPieceName" type="text" maxlength="24" placeholder="My piece">
+            </label>
+            <label>
+              Frequency
+              <input id="customPieceWeight" type="number" min="1" max="100" value="5">
+            </label>
+          </div>
+          <div id="designerMessage" class="designer-message" aria-live="polite"></div>
+          <div class="designer-actions">
+            <button id="clearDesignerButton" class="settings-action" type="button">Clear</button>
+            <button id="saveCustomPieceButton" class="settings-action primary-setting-action" type="button">Add piece</button>
+          </div>
+        </section>
+
+        </div>
+
+        <section class="settings-section">
+          <h3>Accessibility</h3>
+          <p>Applies to Hex and Square.</p>
+          <div class="drag-settings accessibility-settings">
+            <label>
+              <span>Pickup offset</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="dragInitialOffsetSetting" data-step="-5" aria-label="Decrease initial drag offset">−</button>
+                <input id="dragInitialOffsetSetting" type="number" min="0" max="300" step="5">
+                <button type="button" data-step-target="dragInitialOffsetSetting" data-step="5" aria-label="Increase initial drag offset">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Vertical drag offset</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="dragMovingOffsetSetting" data-step="-5" aria-label="Decrease vertical drag offset">−</button>
+                <input id="dragMovingOffsetSetting" type="number" min="0" max="400" step="5">
+                <button type="button" data-step-target="dragMovingOffsetSetting" data-step="5" aria-label="Increase vertical drag offset">+</button>
+              </span>
+            </label>
+            <label>
+              <span>Horizontal drag offset</span>
+              <span class="number-stepper">
+                <button type="button" data-step-target="dragHorizontalOffsetSetting" data-step="-5" aria-label="Decrease horizontal drag offset">−</button>
+                <input id="dragHorizontalOffsetSetting" type="number" min="0" max="400" step="5">
+                <button type="button" data-step-target="dragHorizontalOffsetSetting" data-step="5" aria-label="Increase horizontal drag offset">+</button>
+              </span>
+            </label>
+            <label class="hue-setting">
+              <span>Piece hue (single player)</span>
+              <span class="hue-control">
+                <input id="pieceHueSetting" type="range" min="0" max="359" step="1" aria-label="Piece color hue">
+                <output id="pieceHueValue" for="pieceHueSetting">212°</output>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section reset-settings-section">
+          <h3>Reset</h3>
+          <p>Applies to Hex and Square.</p>
+          <div class="reset-actions">
+            <button id="resetBestButton" class="settings-action danger-action" type="button">Reset top score</button>
+            <button id="resetSettingsButton" class="settings-action danger-action" type="button">Reset all settings</button>
+          </div>
+          <div id="resetConfirmation" class="reset-confirmation" hidden>
+            <p id="resetConfirmationText"></p>
+            <div>
+              <button id="cancelResetButton" class="settings-action" type="button">Cancel</button>
+              <button id="confirmResetButton" class="settings-action danger-action" type="button">Confirm reset</button>
+            </div>
+          </div>
+        </section>
+
+        <footer class="settings-footer">
+          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a> | <button id="appVersion" type="button" aria-label="View change log" aria-haspopup="dialog" aria-controls="changelogModal"></button>
+        </footer>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <button id="fullscreenButton" class="fullscreen-button" type="button" aria-label="Enter fullscreen" title="Enter fullscreen">
+    <svg class="fullscreen-enter" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+    </svg>
+    <svg class="fullscreen-exit" aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"></path>
+    </svg>
+  </button>
+
+  <div id="modal" class="modal is-open" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <h1 id="modalTitle">GenericBlockGame</h1>
+      <p id="modalText">Fit hex pieces. Clear full lines in three directions or an outlined seven-hex group. Edge cells outside the groups clear through lines.</p>
+      <strong id="modalScore" class="modal-score" hidden>0</strong>
+      <div class="modal-actions">
+        <button id="modalCancelButton" class="modal-undo-button" type="button" hidden>Cancel</button>
+        <button id="modalUndoButton" class="modal-undo-button" type="button" hidden>↶ Undo</button>
+        <button id="modalButton" class="primary-button" type="button">Start game</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="changelogModal" class="modal changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+    <div class="modal-card">
+      <h1 id="changelogTitle">What's new</h1>
+      <p id="changelogVersion"></p>
+      <ul id="changelogList" class="changelog-list"></ul>
+      <div class="modal-actions">
+        <button id="changelogButton" class="primary-button" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Standalone export: styles and scripts are included below. -->
+  <script>
+(function () {
+// Central tuning values for the board, tray, touch behavior, and saved data.
+// Change these values to rebalance the game without editing the game engine.
+const CONFIG = {
+  trayCellSize: 22,
+  pickupAreaPadding: 18,
+
+  // The piece starts above the pointer, then rises farther as the pointer
+  // travels away from the tray. This keeps the board visible under a finger.
+  drag: {
+    baseLiftPx: 100,
+    maxExtraLiftPx: 180,
+    maxHorizontalOffsetPx: 170,
+    extraLiftDistancePx: 360,
+
+    // Once a valid position is reached, require this much extra cell travel
+    // before allowing the piece to move into an invalid position. 0.5 = 50%.
+    invalidMoveResistance: 0.5,
+  },
+
+  storageKey: "generic-block-game-hex-state-v1",
+  twoPlayerStorageKey: "generic-block-game-hex-two-player-v1",
+  aiStorageKey: "generic-block-game-hex-vs-ai-v1",
+  bestScoreKey: "generic-block-game-hex-best-v1",
+  modifiedBestScoreKey: "generic-block-game-hex-best-modified-v1",
+  timedBestScoreKey: "generic-block-game-hex-best-timed-v1",
+  timedModifiedBestScoreKey: "generic-block-game-hex-best-timed-modified-v1",
+  settingsKey: "generic-block-game-hex-settings-v1",
+  globalSettingsKey: "generic-block-game-global-settings-v1",
+  boardModeKey: "generic-block-game-board-mode-v1",
+};
+
+const SQUARE_STORAGE = {
+  storageKey: "generic-block-game-state-v1",
+  bestScoreKey: "generic-block-game-best-v1",
+  modifiedBestScoreKey: "generic-block-game-best-modified-v1",
+  timedBestScoreKey: "generic-block-game-best-timed-v1",
+  timedModifiedBestScoreKey: "generic-block-game-best-timed-modified-v1",
+  settingsKey: "generic-block-game-settings-v1",
+};
+
+const APP_VERSION = "0.2";
+
+// Newest version first. The changelog modal lists the entries for APP_VERSION.
+const CHANGELOG = [
+  {
+    version: "0.2",
+    changes: [
+      "New hexagonal game mode!",
+      "Two Player and VS Ai modes",
+      "6 new default pieces",
+      "Better visibility for clearable sections",
+    ],
+  },
+];
+
+function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
+  return mode === "square" ? SQUARE_STORAGE : CONFIG;
+}
+
+window.GenericBlockGame = window.GenericBlockGame || {};
+window.GenericBlockGame.CONFIG = CONFIG;
+window.GenericBlockGame.storageKeys = storageKeys;
+window.GenericBlockGame.APP_VERSION = APP_VERSION;
+window.GenericBlockGame.CHANGELOG = CHANGELOG;
+}());
+
+</script>
+  <script>
+(function () {
+const HEX_HEIGHT = 2 / Math.sqrt(3);
+const HEX_ROW_STEP = Math.sqrt(3) / 2;
+
+function hexKey(q, r) {
+  return `${q},${r}`;
+}
+
+// q and r follow two of the grid's three axes. The third is -q-r.
+function hexToPixel(q, r, cellSize = 1) {
+  return { x: (q + r / 2) * cellSize, y: r * HEX_ROW_STEP * cellSize };
+}
+
+function roundHex(q, r) {
+  const s = -q - r;
+  let roundedQ = Math.round(q);
+  let roundedR = Math.round(r);
+  const roundedS = Math.round(s);
+  const qError = Math.abs(roundedQ - q);
+  const rError = Math.abs(roundedR - r);
+  const sError = Math.abs(roundedS - s);
+  if (qError > rError && qError > sError) roundedQ = -roundedR - roundedS;
+  else if (rError > sError) roundedR = -roundedQ - roundedS;
+  return { q: roundedQ, r: roundedR };
+}
+
+function pixelToHex(x, y, cellSize = 1) {
+  const r = y / (HEX_ROW_STEP * cellSize);
+  const q = x / cellSize - r / 2;
+  return { ...roundHex(q, r), rawQ: q, rawR: r };
+}
+
+function hexDistance(q, r) {
+  return Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r));
+}
+
+function boardDimensions(side) {
+  return { width: side * 2 - 1, height: (side - 1) * 2 * HEX_ROW_STEP + HEX_HEIGHT };
+}
+
+Object.assign(window.GenericBlockGame, {
+  HEX_HEIGHT, HEX_ROW_STEP, hexKey, hexToPixel, pixelToHex, hexDistance, boardDimensions,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const { CONFIG, storageKeys, APP_VERSION } = window.GenericBlockGame;
+// Checked before any settings are written, so a brand-new player is not shown a changelog.
+const firstVisit = [CONFIG.globalSettingsKey, CONFIG.boardModeKey,
+  storageKeys("hex").settingsKey, storageKeys("square").settingsKey]
+  .every(key => localStorage.getItem(key) === null);
+
+function getBoardMode() {
+  return localStorage.getItem(CONFIG.boardModeKey) === "square" ? "square" : "hex";
+}
+
+function setBoardMode(mode) {
+  if (mode === "hex" || mode === "square") localStorage.setItem(CONFIG.boardModeKey, mode);
+}
+
+function defaultGlobalPreferences() {
+  return { dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
+}
+
+function defaultModePreferences(mode = getBoardMode()) {
+  return {
+    undoEnabled: true,
+    pieces: {},
+    customPieces: [],
+    frequencyVersion: 2,
+    boardSettingsVersion: 1,
+    snapOverlapMultiplier: mode === "hex" ? 1.5 : 2.0,
+    traySize: 3,
+    boardSide: mode === "hex" ? 5 : 9,
+    timeTrialEnabled: false,
+    twoPlayerEnabled: false,
+    aiEnabled: false,
+    aiDifficulty: "hard",
+    timeTrialSeconds: 180,
+  };
+}
+
+function defaultPreferences(mode = getBoardMode()) {
+  return { ...defaultModePreferences(mode), ...defaultGlobalPreferences() };
+}
+
+function readSettings(key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    return saved && typeof saved === "object" && !Array.isArray(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function pickSettings(source, defaults) {
+  return Object.fromEntries(Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]]));
+}
+
+// The seen version is stored with the shared settings but is not itself a setting.
+function writeGlobalSettings(settings) {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  localStorage.setItem(CONFIG.globalSettingsKey,
+    JSON.stringify(typeof version === "string" ? { ...settings, version } : settings));
+}
+
+// Players from before versioning have saved settings but no seen version.
+function loadSeenVersion() {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  if (typeof version === "string") return version;
+  return firstVisit ? APP_VERSION : null;
+}
+
+function saveSeenVersion(version = APP_VERSION) {
+  const settings = readSettings(CONFIG.globalSettingsKey) || defaultGlobalPreferences();
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify({ ...settings, version }));
+}
+
+function loadGlobalPreferences() {
+  const defaults = defaultGlobalPreferences();
+  const saved = readSettings(CONFIG.globalSettingsKey);
+  if (saved) return pickSettings(saved, defaults);
+  const legacy = readSettings(storageKeys(getBoardMode()).settingsKey)
+    || readSettings(storageKeys(getBoardMode() === "hex" ? "square" : "hex").settingsKey) || {};
+  const global = pickSettings(legacy, defaults);
+  // Replace the old offset defaults while keeping custom values.
+  for (const key of ["dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset"]) {
+    if (global[key] === 110) global[key] = defaults[key];
+  }
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(global));
+  return global;
+}
+
+function loadPreferences(mode = getBoardMode()) {
+  const defaults = defaultModePreferences(mode);
+  const key = storageKeys(mode).settingsKey;
+  const saved = readSettings(key) || {};
+  const preferences = pickSettings(saved, defaults);
+  if (mode === "square" && saved.boardSide === undefined && saved.boardWidth !== undefined) {
+    preferences.boardSide = Number(saved.boardWidth);
+  }
+  const sizes = mode === "hex" ? [4, 5, 6] : [6, 9, 12];
+  preferences.boardSide = Number(preferences.boardSide);
+  if (!sizes.includes(preferences.boardSide)) preferences.boardSide = defaults.boardSide;
+  normalizeGameMode(preferences, mode);
+  if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
+    preferences.snapOverlapMultiplier = 1.5;
+  }
+  if (preferences.frequencyVersion !== 2) {
+    for (const setting of Object.values(preferences.pieces)) delete setting.weight;
+    preferences.frequencyVersion = 2;
+  }
+  const global = loadGlobalPreferences();
+  if (Object.keys(saved).length) localStorage.setItem(key, JSON.stringify(preferences));
+  return { ...preferences, ...global };
+}
+
+function savePreferences(preferences, mode = getBoardMode()) {
+  const modeSettings = pickSettings(preferences, defaultModePreferences(mode));
+  normalizeGameMode(modeSettings, mode);
+  localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(modeSettings));
+  writeGlobalSettings(pickSettings(preferences, defaultGlobalPreferences()));
+}
+
+function normalizeGameMode(preferences, mode) {
+  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "hard";
+  if (mode === "square") {
+    preferences.twoPlayerEnabled = false;
+    preferences.aiEnabled = false;
+  }
+  if (preferences.aiEnabled) preferences.twoPlayerEnabled = false;
+  if (preferences.aiEnabled || preferences.twoPlayerEnabled) preferences.timeTrialEnabled = false;
+}
+
+function resetAllPreferences() {
+  writeGlobalSettings(defaultGlobalPreferences());
+  for (const mode of ["hex", "square"]) {
+    localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
+  }
+}
+
+// Internal migration fields do not affect score mode. Piece overrides only
+// count as modified when their effective value differs from the defaults.
+function isDefaultPreferences(preferences = loadPreferences()) {
+  const defaults = defaultPreferences();
+  const pieceSettingsAreDefault = Object.values(preferences.pieces || {}).every(setting => {
+    const enabledIsDefault = setting.enabled === undefined || setting.enabled === true;
+    const weightIsDefault = setting.weight === undefined || Number(setting.weight) === 5;
+    return enabledIsDefault && weightIsDefault;
+  });
+
+  return Number(preferences.traySize) === defaults.traySize
+    && Number(preferences.boardSide) === defaults.boardSide
+    && (preferences.customPieces || []).length === 0
+    && pieceSettingsAreDefault;
+}
+
+// Time Trial has its own default check. The mode toggle itself is not a
+// modification, but changing its duration from three minutes is.
+function isDefaultTimedPreferences(preferences = loadPreferences()) {
+  return isDefaultPreferences(preferences)
+    && Number(preferences.timeTrialSeconds) === 180;
+}
+
+Object.assign(window.GenericBlockGame, {
+  getBoardMode,
+  setBoardMode,
+  resetAllPreferences,
+  defaultPreferences,
+  loadPreferences,
+  savePreferences,
+  loadSeenVersion,
+  saveSeenVersion,
+  isDefaultPreferences,
+  isDefaultTimedPreferences,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const { hexToPixel, HEX_HEIGHT, getBoardMode } = window.GenericBlockGame;
+// Each piece uses [q, r] hex cells and includes the [0, 0] anchor.
+// Weight controls how often a shape appears: larger numbers appear more often.
+// Add a new object to this array to add a new piece to the game.
+const SHAPES = [
+  { id: "single", weight: 5, cells: [[0,0]] },
+  { id: "line2", weight: 5, cells: [[0,0],[1,0]] },
+  { id: "line3", weight: 5, cells: [[0,0],[1,0],[2,0]] },
+  { id: "line4", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0]] },
+  { id: "bend3", weight: 5, cells: [[0,0],[1,0],[1,1]] },
+  { id: "triangle3", weight: 5, cells: [[0,0],[1,0],[0,1]] },
+  { id: "diamond4", weight: 5, cells: [[0,0],[1,0],[0,1],[1,1]] },
+  { id: "fork4", weight: 5, cells: [[0,0],[1,0],[-1,1],[0,-1]] },
+  { id: "zigzag4", weight: 5, cells: [[0,0],[1,0],[1,1],[2,1]] },
+  { id: "hook4", weight: 5, cells: [[0,0],[1,0],[2,0],[2,-1]] },
+  { id: "arc4", weight: 5, cells: [[0,0],[1,0],[1,1],[0,2]] },
+  { id: "triangleTail4", weight: 5, cells: [[0,0],[1,0],[0,1],[0,2]] },
+  { id: "hookLeft4", weight: 5, cells: [[0,0],[-1,1],[-1,2],[-1,3]] },
+  { id: "hookRight4", weight: 5, cells: [[0,0],[1,0],[1,1],[1,2]] },
+];
+
+const SQUARE_SHAPES = [
+  { id: "single", cells: [[0,0]] },
+  { id: "line2", cells: [[0,0],[1,0]] },
+  { id: "diagonal2", cells: [[0,0],[1,1]] },
+  { id: "line3", cells: [[0,0],[1,0],[2,0]] },
+  { id: "diagonal3", cells: [[0,0],[1,1],[2,2]] },
+  { id: "line4", cells: [[0,0],[1,0],[2,0],[3,0]] },
+  { id: "square2", cells: [[0,0],[1,0],[0,1],[1,1]] },
+  { id: "corner3", cells: [[0,0],[0,1],[1,1]] },
+  { id: "corner5", cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
+  { id: "t4", cells: [[0,0],[1,0],[2,0],[1,1]] },
+  { id: "s4", cells: [[1,0],[2,0],[0,1],[1,1]] },
+  { id: "z4", cells: [[0,0],[1,0],[1,1],[2,1]] },
+  { id: "l4", cells: [[0,0],[0,1],[0,2],[1,2]] },
+  { id: "j4", cells: [[1,0],[1,1],[0,2],[1,2]] },
+  { id: "t5", cells: [[0,0],[1,0],[2,0],[1,1],[1,2]] },
+].map(shape => {
+  const [anchorQ, anchorR] = shape.cells[0];
+  return { ...shape, weight: 5, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };
+});
+
+function rotationCount(mode = getBoardMode()) {
+  return mode === "hex" ? 6 : 4;
+}
+
+function shapePoint(q, r, mode = getBoardMode()) {
+  return mode === "hex" ? hexToPixel(q, r) : { x: q, y: r };
+}
+
+function cellHeight(mode = getBoardMode()) {
+  return mode === "hex" ? HEX_HEIGHT : 1;
+}
+
+// Looks up a shape stored in the tray by its short ID.
+function shapeById(id) {
+  // Fall back safely if a saved tray references a custom piece later deleted.
+  const shapes = getAllShapes();
+  return shapes.find(shape => shape.id === id) || shapes[0];
+}
+
+// Combines built-in pieces with pieces created in the settings editor.
+function getAllShapes() {
+  const preferences = window.GenericBlockGame.loadPreferences();
+  const shapes = getBoardMode() === "hex" ? SHAPES : SQUARE_SHAPES;
+  return [...shapes, ...preferences.customPieces.map(shape => {
+    const [anchorQ, anchorR] = shape.cells[0];
+    return { ...shape, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };
+  })];
+}
+
+// Applies each piece's enabled state and user-selected frequency.
+function getConfiguredShapes() {
+  const preferences = window.GenericBlockGame.loadPreferences();
+  return getAllShapes().map(shape => {
+    const override = preferences.pieces[shape.id] || {};
+    return {
+      ...shape,
+      enabled: override.enabled !== false,
+      weight: Math.max(0, Number(override.weight ?? shape.weight) || 0),
+    };
+  });
+}
+
+// Bounds include the whole hex tile, even when a turn gives negative offsets.
+function shapeDimensions(shape) {
+  const tileHeight = cellHeight();
+  const centers = shape.cells.map(([q, r]) => shapePoint(q, r));
+  const minX = Math.min(...centers.map(cell => cell.x)) - 0.5;
+  const minY = Math.min(...centers.map(cell => cell.y)) - tileHeight / 2;
+  return {
+    minX,
+    minY,
+    width: Math.max(...centers.map(cell => cell.x)) + 0.5 - minX,
+    height: Math.max(...centers.map(cell => cell.y)) + tileHeight / 2 - minY,
+  };
+}
+
+// Rotate around the anchor by one turn of the current grid.
+function rotateShape(shape, turns = 0) {
+  let cells = shape.cells.map(([x, y]) => [x, y]);
+  const count = rotationCount();
+  const rotations = ((turns % count) + count) % count;
+  for (let turn = 0; turn < rotations; turn += 1) {
+    cells = cells.map(([q, r]) => count === 6 ? [-r, q + r] : [-r, q]);
+  }
+  return { ...shape, cells };
+}
+
+// Picks a random shape while respecting each shape's frequency weight.
+function randomShape() {
+  const availableShapes = getConfiguredShapes().filter(shape => shape.enabled && shape.weight > 0);
+  const pool = availableShapes.length ? availableShapes : getAllShapes();
+  const totalWeight = pool.reduce((sum, shape) => sum + shape.weight, 0);
+  let roll = Math.random() * totalWeight;
+
+  for (const shape of pool) {
+    roll -= shape.weight;
+    if (roll <= 0) return shape;
+  }
+
+  return pool.at(-1);
+}
+
+Object.assign(window.GenericBlockGame, {
+  SHAPES,
+  SQUARE_SHAPES,
+  rotationCount,
+  shapePoint,
+  cellHeight,
+  getAllShapes,
+  getConfiguredShapes,
+  shapeById,
+  shapeDimensions,
+  rotateShape,
+  randomShape,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const { hexKey, hexDistance, hexToPixel, pixelToHex, boardDimensions, getBoardMode } = window.GenericBlockGame;
+
+// Store only cells that belong to the hexagon.
+function createEmptyBoard(side, mode = getBoardMode()) {
+  side ??= mode === "hex" ? 5 : 9;
+  if (mode === "square") {
+    const cells = {};
+    for (let r = 0; r < side; r += 1) {
+      for (let q = 0; q < side; q += 1) cells[hexKey(q, r)] = 0;
+    }
+    return { type: "square", size: side, cells };
+  }
+  const radius = side - 1;
+  const cells = {};
+  for (let r = -radius; r <= radius; r += 1) {
+    for (let q = -radius; q <= radius; q += 1) {
+      if (hexDistance(q, r) <= radius) cells[hexKey(q, r)] = 0;
+    }
+  }
+  return { type: "hex", radius, cells };
+}
+
+function cloneBoard(board) {
+  return { ...board, cells: { ...board.cells } };
+}
+
+function getBoardSide(board) {
+  return board.type === "square" ? board.size : board.radius + 1;
+}
+
+function getBoardDimensions(board) {
+  return board.type === "square" ? { width: board.size, height: board.size } : boardDimensions(board.radius + 1);
+}
+
+function boardPoint(board, q, r, cellSize = 1) {
+  if (board.type !== "square") return hexToPixel(q, r, cellSize);
+  const center = (board.size - 1) / 2;
+  return { x: (q - center) * cellSize, y: (r - center) * cellSize };
+}
+
+function boardCellAt(board, x, y, cellSize = 1) {
+  if (board.type !== "square") return pixelToHex(x, y, cellSize);
+  const center = (board.size - 1) / 2;
+  const rawQ = x / cellSize + center;
+  const rawR = y / cellSize + center;
+  return { q: Math.round(rawQ), r: Math.round(rawR), rawQ, rawR };
+}
+
+function placementDistance(board, q, r) {
+  return board.type === "square" ? Math.max(Math.abs(q), Math.abs(r)) : hexDistance(q, r);
+}
+
+function canPlace(board, shape, originQ, originR) {
+  return shape.cells.every(([q, r]) => board.cells[hexKey(originQ + q, originR + r)] === 0);
+}
+
+// Every piece includes its anchor cell, so each board cell is a possible origin.
+function canPlaceAnywhere(board, shape) {
+  return Object.keys(board.cells).some(key => {
+    const [q, r] = key.split(",").map(Number);
+    return canPlace(board, shape, q, r);
+  });
+}
+
+function fillShape(board, shape, originQ, originR, value = 1) {
+  for (const [q, r] of shape.cells) board.cells[hexKey(originQ + q, originR + r)] = value;
+}
+
+// Use the same fixed groups for clears and outlines.
+function boardChunks(board) {
+  if (board.type === "square") {
+    const chunks = [];
+    for (let row = 0; row < board.size; row += 3) {
+      for (let col = 0; col < board.size; col += 3) {
+        const cells = [];
+        for (let r = row; r < row + 3; r += 1) {
+          for (let q = col; q < col + 3; q += 1) cells.push(hexKey(q, r));
+        }
+        chunks.push({ center: hexKey(col + 1, row + 1), cells });
+      }
+    }
+    return chunks;
+  }
+  const neighbors = [[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+  const chunks = Object.keys(board.cells).flatMap(key => {
+    const [q, r] = key.split(",").map(Number);
+    if (((q - 2 * r) % 7 + 7) % 7 !== 0) return [];
+    const cells = neighbors.map(([dq, dr]) => hexKey(q + dq, r + dr))
+      .filter(cell => Object.hasOwn(board.cells, cell));
+    return cells.length === 7 || (board.radius === 3 && cells.length === 5) ? [{ center: key, cells }] : [];
+  });
+  if (board.radius === 5) {
+    // Two rows of three cells form one outer group. Repeat it at each corner.
+    let cells = [[-5,4],[-4,4],[-3,4],[-5,5],[-4,5],[-3,5]];
+    let center = [-4,5];
+    for (let turn = 0; turn < 6; turn += 1) {
+      chunks.push({ center: hexKey(...center), cells: cells.map(([q, r]) => hexKey(q, r)) });
+      cells = cells.map(([q, r]) => [-r, q + r]);
+      center = [-center[1], center[0] + center[1]];
+    }
+  }
+  return chunks;
+}
+
+// Lines follow constant q, r, or s. Groups use the fixed board outlines.
+function boardZones(board) {
+  const lines = new Map();
+  for (const key of Object.keys(board.cells)) {
+    const [q, r] = key.split(",").map(Number);
+    const axes = board.type === "square" ? [["q", q], ["r", r]] : [["q", q], ["r", r], ["s", -q - r]];
+    for (const [axis, value] of axes) {
+      const lineKey = `${axis}:${value}`;
+      if (!lines.has(lineKey)) lines.set(lineKey, []);
+      lines.get(lineKey).push(key);
+    }
+  }
+  return [...lines.values(), ...boardChunks(board).map(chunk => chunk.cells)];
+}
+
+// Count shared cells once when clearing, but score each completed zone.
+function findCompletedCells(board, zones = boardZones(board)) {
+  const completed = new Set();
+  let zoneCount = 0;
+  let pointValue = 0;
+  for (const line of zones) {
+    if (!line.every(key => board.cells[key])) continue;
+    zoneCount += 1;
+    pointValue += line.length;
+    for (const key of line) completed.add(key);
+  }
+  return { cells: completed, zoneCount, pointValue };
+}
+
+function clearCells(board, completed) {
+  for (const key of completed) board.cells[key] = 0;
+}
+
+Object.assign(window.GenericBlockGame, {
+  createEmptyBoard, cloneBoard, boardChunks, boardZones, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
+  getBoardSide, getBoardDimensions, boardPoint, boardCellAt, placementDistance,
+});
+}());
+
+</script>
+  <script>
+(function () {
+// A move without a clear resets the streak. Each cleared zone scores its cells.
+function scorePlacement(previousStreak, completed) {
+  const streak = completed.zoneCount ? previousStreak + 1 : 0;
+  return { streak, points: completed.pointValue * completed.zoneCount * streak };
+}
+
+window.GenericBlockGame.scorePlacement = scorePlacement;
+}());
+
+</script>
+  <script>
+(function () {
+const { scorePlacement } = window.GenericBlockGame;
+
+function createMatch() {
+  return { player: 0, scores: [0, 0], streaks: [0, 0], placed: 0, consecutivePasses: 0 };
+}
+
+function cloneMatch(match) {
+  return match ? { ...match, scores: [...match.scores], streaks: [...match.streaks] } : null;
+}
+
+// Board values track each player's pieces, while VS AI swaps their colors.
+function matchPlayerColor(state, player) {
+  const redPlayer = state.aiOpponent ? 1 : 0;
+  return player === redPlayer ? "red" : "blue";
+}
+
+function isValidMatch(match) {
+  return match && [0, 1].includes(match.player)
+    && [match.scores, match.streaks].every(values => Array.isArray(values)
+      && values.length === 2 && values.every(value => Number.isSafeInteger(value) && value >= 0))
+    && Number.isSafeInteger(match.placed) && match.placed >= 0
+    && Number.isInteger(match.consecutivePasses) && match.consecutivePasses >= 0 && match.consecutivePasses <= 2;
+}
+
+// Only the player who completes a clear earns its points and streak.
+function recordMatchPlacement(match, completed) {
+  match.placed += 1;
+  const player = match.player;
+  const scored = scorePlacement(match.streaks[player], completed);
+  match.streaks[player] = scored.streak;
+  match.scores[player] += scored.points;
+  return scored.points;
+}
+
+// Only a completed tray breaks a run of passes.
+function endMatchTurn(match, passed = false) {
+  match.consecutivePasses = passed ? match.consecutivePasses + 1 : 0;
+  if (match.consecutivePasses >= 2) return true;
+  match.player = 1 - match.player;
+  match.placed = 0;
+  return false;
+}
+
+Object.assign(window.GenericBlockGame, {
+  createMatch, cloneMatch, matchPlayerColor, isValidMatch, recordMatchPlacement, endMatchTurn,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const {
+  boardZones, cloneBoard, canPlace, fillShape, findCompletedCells, clearCells,
+  shapeById, rotateShape, scorePlacement,
+} = window.GenericBlockGame;
+
+// Hard keeps the original search. Medium considers fewer future moves.
+const SEARCH_LIMITS = {
+  medium: { depth: 2, width: 4 },
+  hard: { depth: 3, width: 8 },
+};
+
+function positionValue(node, zones) {
+  const empty = Object.values(node.board.cells).filter(value => value === 0).length;
+  let nearClear = 0;
+  for (const zone of zones) {
+    const gaps = zone.filter(key => node.board.cells[key] === 0).length;
+    if (gaps === 1) nearClear += 4;
+    else if (gaps === 2) nearClear += 1;
+  }
+  // Favor near clears within our tray, then avoid giving them to the other player.
+  return node.points * 20 + node.placed * 12 + empty * 0.5
+    + (node.remaining.length ? nearClear : -nearClear)
+    + (node.remaining.length === 0 ? 30 : 0);
+}
+
+// Use only the current board and tray. Never change the live game or turn pieces.
+// A null move means pass, including a pass that secures an existing lead.
+function chooseAiMove(state, difficulty = "hard") {
+  if (state.board.type !== "hex" || !state.match || state.match.player !== 1 || state.gameOver) return null;
+  if (difficulty !== "easy" && state.match.consecutivePasses === 1
+    && state.match.scores[1] > state.match.scores[0]) return null;
+  const remaining = state.tray.filter(item => !item.used).map(item => ({
+    item, shape: rotateShape(shapeById(item.shapeId), item.rotation || 0),
+  }));
+  if (!remaining.length) return null;
+  const origins = Object.keys(state.board.cells).map(key => key.split(",").map(Number));
+  // Easy chooses a legal move without checking scores, clears, or future moves.
+  if (difficulty === "easy") {
+    const moves = [];
+    for (const { item, shape } of remaining) {
+      for (const [q, r] of origins) {
+        if (canPlace(state.board, shape, q, r)) moves.push({ uid: item.uid, q, r });
+      }
+    }
+    return moves[Math.floor(Math.random() * moves.length)] || null;
+  }
+  const limits = Object.hasOwn(SEARCH_LIMITS, difficulty) ? SEARCH_LIMITS[difficulty] : SEARCH_LIMITS.hard;
+  const { depth: searchDepth, width: searchWidth } = limits;
+  const zones = boardZones(state.board);
+  let choices = [{ board: state.board, remaining, streak: state.match.streaks[1], points: 0, placed: 0, first: null }];
+  let best = null;
+  for (let depth = 0; depth < Math.min(searchDepth, remaining.length); depth += 1) {
+    const next = [];
+    for (const node of choices) {
+      const seenPieces = new Set();
+      for (const [index, { item, shape }] of node.remaining.entries()) {
+        const pieceKey = `${item.shapeId}:${item.rotation || 0}`;
+        if (seenPieces.has(pieceKey)) continue;
+        seenPieces.add(pieceKey);
+        for (const [q, r] of origins) {
+          if (!canPlace(node.board, shape, q, r)) continue;
+          const board = cloneBoard(node.board);
+          fillShape(board, shape, q, r, 2);
+          const completed = findCompletedCells(board, zones);
+          clearCells(board, completed.cells);
+          const scored = scorePlacement(node.streak, completed);
+          const candidate = {
+            board,
+            remaining: node.remaining.filter((_, other) => other !== index),
+            streak: scored.streak,
+            points: node.points + scored.points,
+            placed: node.placed + 1,
+            first: node.first || { uid: item.uid, q, r },
+          };
+          candidate.value = positionValue(candidate, zones);
+          next.push(candidate);
+          if (!best || candidate.value > best.value) best = candidate;
+        }
+      }
+    }
+    next.sort((a, b) => b.value - a.value);
+    choices = next.slice(0, searchWidth);
+    if (!choices.length) break;
+  }
+  return best?.first || null;
+}
+
+window.GenericBlockGame.chooseAiMove = chooseAiMove;
+}());
+
+</script>
+  <script>
+(function () {
+const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch,
+  findCompletedCells, clearCells, scorePlacement } = window.GenericBlockGame;
+const SAVE_VERSION = 1;
+
+// Reads the saved top score. Missing or invalid values become zero.
+function loadBestScore(mode = getBoardMode()) {
+  return Number(localStorage.getItem(storageKeys(mode).bestScoreKey)) || 0;
+}
+
+function saveBestScore(score, mode = getBoardMode()) {
+  localStorage.setItem(storageKeys(mode).bestScoreKey, String(score));
+}
+
+function loadModifiedBestScore(mode = getBoardMode()) {
+  return Number(localStorage.getItem(storageKeys(mode).modifiedBestScoreKey)) || 0;
+}
+
+function saveModifiedBestScore(score, mode = getBoardMode()) {
+  localStorage.setItem(storageKeys(mode).modifiedBestScoreKey, String(score));
+}
+
+function loadTimedBestScore(modified = false, mode = getBoardMode()) {
+  const keys = storageKeys(mode);
+  const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
+  return Number(localStorage.getItem(key)) || 0;
+}
+
+function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
+  const keys = storageKeys(mode);
+  const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
+  localStorage.setItem(key, String(score));
+}
+
+// Save the game and recent moves for reload and Undo.
+function saveGame(state) {
+  const saved = {
+    ...state,
+    saveVersion: SAVE_VERSION,
+    history: state.history.slice(-8),
+  };
+
+  const keys = storageKeys(state.board.type || "hex");
+  const key = state.match ? (state.aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : keys.storageKey;
+  localStorage.setItem(key, JSON.stringify(saved));
+}
+
+function restoreBoard(board, mode) {
+  if (mode === "square" && Array.isArray(board)) {
+    const converted = createEmptyBoard(board.length, "square");
+    if (!board.every(row => Array.isArray(row) && row.length === board.length)) return null;
+    for (const [r, row] of board.entries()) {
+      for (const [q, value] of row.entries()) converted.cells[`${q},${r}`] = value;
+    }
+    return converted;
+  }
+  return board ? { ...board, type: board.type || mode } : null;
+}
+
+// Old timer saves could include cells whose points were already awarded.
+// Repair only when the last move's score confirms that clear.
+function finishSavedClear(saved) {
+  if (saved.saveVersion !== undefined) return false;
+  const previous = saved.history?.at(-1);
+  const completed = findCompletedCells(saved.board);
+  const streak = saved.match ? saved.match.streaks[saved.match.player] : saved.streak;
+  if (!previous || !completed.zoneCount || !(streak > 0)) return false;
+  const scored = scorePlacement(streak - 1, completed);
+  if (!(scored.points > 0) || saved.score - previous.score !== scored.points) return false;
+  clearCells(saved.board, completed.cells);
+  return true;
+}
+
+// Restore each board's own game. Square mode never loads a match.
+function loadGame(matchMode = false, mode = getBoardMode()) {
+  const twoPlayer = Boolean(matchMode);
+  const aiOpponent = matchMode === "ai";
+  if (twoPlayer && mode !== "hex") return null;
+  try {
+    const key = twoPlayer ? (aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : storageKeys(mode).storageKey;
+    const saved = JSON.parse(localStorage.getItem(key));
+    if (saved?.saveVersion > SAVE_VERSION) return null;
+    if (Boolean(saved?.aiOpponent) !== aiOpponent) return null;
+
+    // Keep games and Undo states saved before the pass rule changed.
+    if (twoPlayer) {
+      for (const entry of [saved, ...(saved?.history || [])]) {
+        if (entry?.match && entry.match.consecutivePasses === undefined) {
+          entry.match.consecutivePasses = entry.match.emptyPasses;
+          delete entry.match.emptyPasses;
+        }
+      }
+    }
+    if (twoPlayer ? !isValidMatch(saved?.match) : saved?.match) return null;
+
+    const board = restoreBoard(saved?.board, mode);
+    if (!board || board.type !== mode) return null;
+    const size = mode === "hex" ? board.radius + 1 : board.size;
+    if (!(mode === "hex" ? [4, 5, 6] : [6, 9, 12]).includes(size)) return null;
+    const expectedCells = Object.keys(createEmptyBoard(size, mode).cells);
+    const cells = board.cells;
+    if (!cells || Object.keys(cells).length !== expectedCells.length
+      || !expectedCells.every(key => cells[key] === 0 || cells[key] === 1
+        || (twoPlayer && cells[key] === 2))) return null;
+
+    saved.board = board;
+    for (const entry of saved.history || []) entry.board = restoreBoard(entry.board, mode);
+    if (finishSavedClear(saved)) {
+      saved.saveVersion = SAVE_VERSION;
+      saveGame(saved);
+    }
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+function resetAllScores() {
+  for (const mode of ["hex", "square"]) {
+    saveBestScore(0, mode);
+    saveModifiedBestScore(0, mode);
+    saveTimedBestScore(0, false, mode);
+    saveTimedBestScore(0, true, mode);
+  }
+}
+
+function resetSavedGames() {
+  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey,
+    CONFIG.twoPlayerStorageKey, CONFIG.aiStorageKey]) {
+    localStorage.setItem(key, "null");
+  }
+}
+
+Object.assign(window.GenericBlockGame, {
+  resetAllScores,
+  resetSavedGames,
+  loadBestScore,
+  saveBestScore,
+  loadModifiedBestScore,
+  saveModifiedBestScore,
+  loadTimedBestScore,
+  saveTimedBestScore,
+  saveGame,
+  loadGame,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const {
+  CONFIG, shapeById, shapeDimensions, rotateShape, createEmptyBoard, boardChunks,
+  hexKey, hexToPixel, boardDimensions, HEX_HEIGHT,
+  getBoardMode, getBoardDimensions, shapePoint, cellHeight,
+  matchPlayerColor,
+} = window.GenericBlockGame;
+const boardCells = new Map();
+const sectionEdges = [];
+const HEX_DIRECTIONS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
+const SQUARE_DIRECTIONS = [[0,-1],[1,0],[0,1],[-1,0]];
+
+// Shared DOM references are kept together so game logic stays readable.
+const elements = {
+  board: document.querySelector("#board"),
+  tray: document.querySelector("#tray"),
+  score: document.querySelector("#score"),
+  timerDisplay: document.querySelector("#timerDisplay"),
+  bestScore: document.querySelector("#bestScore"),
+  bestScoreLabel: document.querySelector("#bestScoreLabel"),
+  undoButton: document.querySelector("#undoButton"),
+  passButton: document.querySelector("#passButton"),
+  soloScore: document.querySelector("#soloScore"),
+  bestScorePanel: document.querySelector("#bestScorePanel"),
+  matchScoreboard: document.querySelector("#matchScoreboard"),
+  redScore: document.querySelector("#redScore"),
+  blueScore: document.querySelector("#blueScore"),
+  redPlayer: document.querySelector("#redPlayer"),
+  bluePlayer: document.querySelector("#bluePlayer"),
+  turnStatus: document.querySelector("#turnStatus"),
+  resetButton: document.querySelector("#resetButton"),
+  settingsButton: document.querySelector("#settingsButton"),
+  settingsPanel: document.querySelector("#settingsPanel"),
+  fullscreenButton: document.querySelector("#fullscreenButton"),
+  modal: document.querySelector("#modal"),
+  changelogModal: document.querySelector("#changelogModal"),
+  modalTitle: document.querySelector("#modalTitle"),
+  modalText: document.querySelector("#modalText"),
+  modalScore: document.querySelector("#modalScore"),
+  modalButton: document.querySelector("#modalButton"),
+  modalUndoButton: document.querySelector("#modalUndoButton"),
+  modalCancelButton: document.querySelector("#modalCancelButton"),
+  dragLayer: document.querySelector("#dragLayer"),
+  scoreBurst: document.querySelector("#scoreBurst"),
+};
+
+// Place cell centers on the hex grid, with no square cells behind the board.
+function buildHexGrid(container, side, makeCell) {
+  const board = createEmptyBoard(side, "hex");
+  const { width, height } = boardDimensions(side);
+  const fragment = document.createDocumentFragment();
+  container.style.aspectRatio = `${width} / ${height}`;
+  for (const key of Object.keys(board.cells)) {
+    const [q, r] = key.split(",").map(Number);
+    const center = hexToPixel(q, r);
+    const cell = makeCell(q, r, key);
+    cell.style.left = `${(center.x + (width - 1) / 2) / width * 100}%`;
+    cell.style.top = `${(center.y + (height - HEX_HEIGHT) / 2) / height * 100}%`;
+    cell.style.width = `${100 / width}%`;
+    cell.style.height = `${HEX_HEIGHT / height * 100}%`;
+    fragment.append(cell);
+  }
+  container.replaceChildren(fragment);
+}
+
+function buildSquareGrid(container, size, makeCell) {
+  const fragment = document.createDocumentFragment();
+  container.style.aspectRatio = "1";
+  for (let r = 0; r < size; r += 1) {
+    for (let q = 0; q < size; q += 1) {
+      const cell = makeCell(q, r, hexKey(q, r));
+      cell.style.left = `${q / size * 100}%`;
+      cell.style.top = `${r / size * 100}%`;
+      cell.style.width = `${100 / size}%`;
+      cell.style.height = `${100 / size}%`;
+      fragment.append(cell);
+    }
+  }
+  container.replaceChildren(fragment);
+}
+
+function buildBoard(side) {
+  boardCells.clear();
+  sectionEdges.length = 0;
+  const board = createEmptyBoard(side);
+  const square = board.type === "square";
+  document.body.classList.toggle("square-mode", square);
+  document.querySelector(".game-shell").setAttribute("aria-label", `${square ? "Square" : "Hex"} block puzzle game`);
+  elements.modalText.textContent = square
+    ? "Fit square pieces. Clear full rows, columns, or outlined 3 by 3 groups."
+    : `Fit hex pieces. Clear full lines in three directions or an outlined group.${side === 4
+      ? " Outer groups have five cells. The center group has seven."
+      : side === 6 ? " Outer groups have six cells. Inner groups have seven. Other edge cells clear through lines."
+        : " Groups have seven cells. Other edge cells clear through lines."}`;
+  const build = square ? buildSquareGrid : buildHexGrid;
+  build(elements.board, side, (q, r, key) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    cell.dataset.q = q;
+    cell.dataset.r = r;
+    cell.setAttribute("role", "gridcell");
+    cell.setAttribute("aria-label", `${square ? "Square" : "Hex"} ${q}, ${r}`);
+    boardCells.set(key, cell);
+    return cell;
+  });
+  elements.board.setAttribute("aria-label", square ? `Square board, ${side} by ${side}, ${boardCells.size} cells`
+    : `Hexagon board, ${side} cells per edge, ${boardCells.size} cells`);
+  drawBoardFrame(board);
+  drawChunkOutlines(board);
+}
+
+function hexCorners(board, key) {
+  const { width, height } = getBoardDimensions(board);
+  const [q, r] = key.split(",").map(Number);
+  const center = hexToPixel(q, r);
+  return Array.from({ length: 6 }, (_, corner) => {
+    const angle = (corner * 60 - 90) * Math.PI / 180;
+    const x = center.x + width / 2 + Math.cos(angle) / Math.sqrt(3);
+    const y = center.y + height / 2 + Math.sin(angle) / Math.sqrt(3);
+    return `${Number(x.toFixed(6))},${Number(y.toFixed(6))}`;
+  });
+}
+
+function hexBoundary(board, members) {
+  const edges = new Map();
+  for (const key of members) {
+    const [q, r] = key.split(",").map(Number);
+    const points = hexCorners(board, key);
+    for (const [edge, [dq, dr]] of HEX_DIRECTIONS.entries()) {
+      if (!members.has(hexKey(q + dq, r + dr))) edges.set(points[edge], points[(edge + 1) % 6]);
+    }
+  }
+  let path = "";
+  while (edges.size) {
+    const start = edges.keys().next().value;
+    let current = start;
+    path += `M${start}`;
+    do {
+      const next = edges.get(current);
+      edges.delete(current);
+      if (next === start) path += "Z";
+      else path += `L${next}`;
+      current = next;
+    } while (current !== start && edges.has(current));
+  }
+  return path;
+}
+
+function boardOverlay(board, className) {
+  const overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const { width, height } = getBoardDimensions(board);
+  overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  overlay.setAttribute("class", className);
+  overlay.setAttribute("aria-hidden", "true");
+  return overlay;
+}
+
+function drawBoardFrame(board) {
+  const overlay = boardOverlay(board, "board-frame");
+  const square = board.type === "square";
+  const border = square ? `M0,0H${board.size}V${board.size}H0Z` : hexBoundary(board, new Set(Object.keys(board.cells)));
+  const surface = square ? border : Object.keys(board.cells).map(key => `M${hexCorners(board, key).join("L")}Z`).join("");
+  for (const [className, path] of [["frame-edge", border], ["frame-rim", border], ["frame-grid", surface]]) {
+    const shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    shape.setAttribute("class", className);
+    shape.setAttribute("d", path);
+    overlay.append(shape);
+  }
+  elements.board.append(overlay);
+}
+
+// Reserve a wider gap at group edges. Borders stay below the cell fills.
+function insetHexCell(key, members) {
+  const [q, r] = key.split(",").map(Number);
+  const gaps = HEX_DIRECTIONS.map(([dq, dr]) => !members.has(hexKey(q + dq, r + dr)) ? 1.5 : 0.5);
+  const [a, b, c, d, e, f] = gaps;
+  const root = Math.sqrt(3);
+  const corners = [[50, 0, f - a, (f + a) / root], [100, 25, -b, (2 * a - b) / root],
+    [100, 75, -b, (b - 2 * c) / root], [50, 100, d - c, -(c + d) / root],
+    [0, 75, e, (e - 2 * d) / root], [0, 25, e, (2 * f - e) / root]];
+  const points = corners.map(([x, y, dx, dy]) => `calc(${x}% + ${dx}px) calc(${y}% + ${dy}px)`);
+  boardCells.get(key).style.setProperty("--cell-fill-points", `polygon(${points.join(",")})`);
+}
+
+function sectionShades(chunks, directions, shadeCount) {
+  const sections = chunks.map(chunk => chunk.cells);
+  const owners = new Map(sections.flatMap((cells, index) => cells.map(key => [key, index])));
+  // Give each connected patch outside the clear groups its own shade.
+  for (const start of boardCells.keys()) {
+    if (owners.has(start)) continue;
+    const index = sections.length;
+    const cells = [start];
+    owners.set(start, index);
+    for (let cursor = 0; cursor < cells.length; cursor += 1) {
+      const [q, r] = cells[cursor].split(",").map(Number);
+      for (const [dq, dr] of directions) {
+        const key = hexKey(q + dq, r + dr);
+        if (!boardCells.has(key) || owners.has(key)) continue;
+        owners.set(key, index);
+        cells.push(key);
+      }
+    }
+    sections.push(cells);
+  }
+  const neighbors = sections.map(() => new Set());
+  sections.forEach((cells, index) => {
+    for (const key of cells) {
+      const [q, r] = key.split(",").map(Number);
+      for (const [dq, dr] of directions) {
+        const other = owners.get(hexKey(q + dq, r + dr));
+        if (other !== undefined && other !== index) neighbors[index].add(other);
+      }
+    }
+  });
+  const order = sections.map((_, index) => index).sort((a, b) => neighbors[b].size - neighbors[a].size || a - b);
+  const shades = sections.map(() => -1);
+  function assign(position) {
+    if (position === order.length) return true;
+    const index = order[position];
+    const used = new Set([...neighbors[index]].map(other => shades[other]));
+    for (let choice = 0; choice < shadeCount; choice += 1) {
+      const shade = (index + choice) % shadeCount;
+      if (used.has(shade)) continue;
+      shades[index] = shade;
+      if (assign(position + 1)) return true;
+    }
+    shades[index] = -1;
+    return false;
+  }
+  if (!assign(0)) throw new Error(`Board sections need more than ${shadeCount} background shades`);
+  return new Map(sections.flatMap((cells, index) => cells.map(key => [key, shades[index]])));
+}
+
+function insetSquareCell(key, members) {
+  const [q, r] = key.split(",").map(Number);
+  for (const [index, side] of ["top", "right", "bottom", "left"].entries()) {
+    const [dq, dr] = SQUARE_DIRECTIONS[index];
+    boardCells.get(key).style.setProperty(`--cell-inset-${side}`, members.has(hexKey(q + dq, r + dr)) ? "0.5px" : "1.5px");
+  }
+}
+
+function updateSectionOutlines(board) {
+  for (const edge of sectionEdges) {
+    edge.path.dataset.filled = String(Boolean(board.cells[edge.cell] && board.cells[edge.neighbor]));
+  }
+}
+
+// Draw the clear groups between the cells, below both empty and placed fills.
+function drawChunkOutlines(board) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const overlay = boardOverlay(board, "chunk-outlines");
+  const chunks = boardChunks(board);
+  if (board.type !== "square") {
+    const ungrouped = new Set(boardCells.keys());
+    for (const chunk of chunks) for (const key of chunk.cells) ungrouped.delete(key);
+    for (const key of ungrouped) insetHexCell(key, ungrouped);
+  }
+  const directions = board.type === "square" ? SQUARE_DIRECTIONS : HEX_DIRECTIONS;
+  const shades = sectionShades(chunks, directions, board.type === "square" ? 2 : 3);
+  for (const [key, shade] of shades) boardCells.get(key).dataset.sectionShade = String(shade);
+  const drawn = new Set();
+  chunks.forEach(chunk => {
+    const members = new Set(chunk.cells);
+    for (const key of chunk.cells) {
+      const cell = boardCells.get(key);
+      cell.dataset.chunk = chunk.center;
+      if (board.type === "square") insetSquareCell(key, members);
+      else insetHexCell(key, members);
+      const [q, r] = key.split(",").map(Number);
+      const points = board.type === "square" ? [`${q},${r}`, `${q + 1},${r}`, `${q + 1},${r + 1}`, `${q},${r + 1}`]
+        : hexCorners(board, key);
+      for (const [edge, [dq, dr]] of directions.entries()) {
+        const neighbor = hexKey(q + dq, r + dr);
+        if (members.has(neighbor)) continue;
+        const pair = [key, neighbor].sort().join("|");
+        if (drawn.has(pair)) continue;
+        drawn.add(pair);
+        const outline = document.createElementNS(svgNS, "path");
+        outline.dataset.cell = key;
+        outline.dataset.neighbor = neighbor;
+        outline.dataset.filled = "false";
+        outline.setAttribute("d", `M${points[edge]}L${points[(edge + 1) % points.length]}`);
+        overlay.append(outline);
+        sectionEdges.push({ cell: key, neighbor, path: outline });
+      }
+    }
+  });
+  elements.board.append(overlay);
+}
+
+// Creates a visual piece at either tray size or full board-cell size.
+function makePiece(shape, cellSize) {
+  const { width, height, minX, minY } = shapeDimensions(shape);
+  const tileHeight = cellHeight();
+  const piece = document.createElement("div");
+  piece.className = "piece";
+  piece.style.width = `${width * cellSize}px`;
+  piece.style.height = `${height * cellSize}px`;
+
+  for (const [q, r] of shape.cells) {
+    const center = shapePoint(q, r);
+    const cell = document.createElement("i");
+    cell.className = "piece-cell";
+    cell.dataset.shapeQ = q;
+    cell.dataset.shapeR = r;
+    cell.style.left = `${(center.x - minX - 0.5) * cellSize}px`;
+    cell.style.top = `${(center.y - minY - tileHeight / 2) * cellSize}px`;
+    cell.style.width = `${cellSize}px`;
+    cell.style.height = `${tileHeight * cellSize}px`;
+    piece.append(cell);
+  }
+
+  return piece;
+}
+
+// Redraws scores, occupied cells, and the current tray.
+// The callback lets the controller attach pointer behavior to each tray slot.
+function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointerDown) {
+  const aiTurn = Boolean(state.aiOpponent && state.match?.player === 1 && !state.gameOver);
+  elements.tray.setAttribute("aria-busy", String(aiTurn));
+  boardCells.forEach((cell, key) => {
+    cell.classList.toggle("filled", Boolean(state.board.cells[key]));
+    cell.dataset.player = state.match && state.board.cells[key]
+      ? matchPlayerColor(state, state.board.cells[key] - 1) : "";
+    cell.classList.remove("preview-valid", "preview-invalid", "preview-clear", "clearing");
+  });
+  updateSectionOutlines(state.board);
+
+  elements.tray.replaceChildren();
+  const trayColumns = Math.min(state.tray.length, 4);
+  elements.tray.style.gridTemplateColumns = `repeat(${Math.max(1, trayColumns)}, 1fr)`;
+  elements.tray.classList.toggle("dense-tray", state.tray.length > 3);
+  for (const item of state.tray) {
+    const slot = document.createElement("div");
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    const placeable = !item.used && isShapePlaceable(shape);
+    slot.className = "tray-slot";
+    slot.dataset.uid = item.uid;
+    slot.setAttribute("aria-disabled", String(aiTurn || item.used || !placeable));
+    slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
+    if (item.uid === state.restoredTrayItemUid) slot.classList.add("restored-piece");
+
+    if (item.used) slot.classList.add("used");
+    if (!item.used && !placeable) slot.classList.add("disabled");
+    if (!item.used) {
+      const { width, height } = shapeDimensions(shape);
+      const slotWidth = (elements.tray.clientWidth || 300) / Math.max(1, trayColumns);
+      const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
+      slot.append(makePiece(shape, cellSize));
+    }
+
+    slot.addEventListener("pointerdown", onPointerDown);
+    elements.tray.append(slot);
+  }
+
+  elements.score.textContent = state.score.toLocaleString();
+  elements.bestScore.textContent = bestScore.toLocaleString();
+  elements.bestScoreLabel.textContent = bestScoreLabel;
+  elements.undoButton.disabled = state.history.length === 0;
+  elements.soloScore.hidden = Boolean(state.match);
+  elements.bestScorePanel.hidden = Boolean(state.match);
+  elements.matchScoreboard.hidden = !state.match;
+  if (state.match) {
+    const redPlayer = state.aiOpponent ? 1 : 0;
+    const bluePlayer = 1 - redPlayer;
+    elements.redPlayer.querySelector(".score-label").textContent = state.aiOpponent ? "AI (Red)" : "Red";
+    elements.bluePlayer.querySelector(".score-label").textContent = state.aiOpponent ? "You (Blue)" : "Blue";
+    elements.redScore.textContent = state.match.scores[redPlayer].toLocaleString();
+    elements.blueScore.textContent = state.match.scores[bluePlayer].toLocaleString();
+    elements.redPlayer.classList.toggle("active-player", state.match.player === redPlayer && !state.gameOver);
+    elements.bluePlayer.classList.toggle("active-player", state.match.player === bluePlayer && !state.gameOver);
+    const player = state.match.player === 0 ? "Red" : "Blue";
+    const noMoves = state.tray.some(item => !item.used)
+      && !state.tray.some(item => !item.used && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+    elements.turnStatus.textContent = state.gameOver ? "Both players passed in a row."
+      : aiTurn ? "AI is choosing a move."
+        : `${state.aiOpponent ? "Your turn (Blue)" : `${player}'s turn`}${noMoves ? ". No pieces fit. Pass to end your turn." : ""}`;
+  }
+  delete state.restoredTrayItemUid;
+}
+
+// Shows green or red board cells beneath the currently dragged shape.
+function renderPreview(drag) {
+  clearPreview();
+  if (!drag) return;
+  for (const [q, r] of drag.shape.cells) {
+    const cell = boardCells.get(hexKey(drag.originQ + q, drag.originR + r));
+    cell?.classList.add(drag.valid ? "preview-valid" : "preview-invalid");
+  }
+
+  if (!drag.previewClearCells) return;
+  for (const key of drag.previewClearCells) {
+    const cell = boardCells.get(key);
+    if (cell?.classList.contains("filled") || cell?.classList.contains("preview-valid")) {
+      cell.classList.add("preview-clear");
+    }
+  }
+  renderDragLayerClearPreview(drag);
+}
+
+function clearPreview() {
+  document.querySelectorAll(".preview-valid,.preview-invalid,.preview-clear").forEach(cell => {
+    cell.classList.remove("preview-valid", "preview-invalid", "preview-clear");
+  });
+  elements.dragLayer.querySelectorAll(".drag-preview-clear").forEach(cell => {
+    cell.classList.remove("drag-preview-clear");
+  });
+}
+
+function renderDragLayerClearPreview(drag) {
+  const clearCells = drag.previewClearCells;
+  if (!clearCells) return;
+  const clearKeys = new Set(clearCells);
+  elements.dragLayer.querySelectorAll(".piece-cell").forEach(cell => {
+    const q = drag.originQ + Number(cell.dataset.shapeQ);
+    const r = drag.originR + Number(cell.dataset.shapeR);
+    if (clearKeys.has(hexKey(q, r))) cell.classList.add("drag-preview-clear");
+  });
+}
+
+// Runs the board clear and floating score effects.
+function animateClear(completed, gained) {
+  const cleared = new Set(completed);
+  for (const key of cleared) {
+    boardCells.get(key)?.classList.add("clearing");
+  }
+  // Outlines fade lighter once the cleared board renders.
+  for (const edge of sectionEdges) {
+    if (!cleared.has(edge.cell) && !cleared.has(edge.neighbor)) continue;
+    window.clearTimeout(edge.fadeTimeout);
+    edge.path.classList.add("clear-fade");
+    edge.fadeTimeout = window.setTimeout(() => edge.path.classList.remove("clear-fade"), 2600);
+  }
+
+  if (gained > 0) {
+    elements.scoreBurst.textContent = `+${gained}`;
+    elements.scoreBurst.classList.remove("show");
+    void elements.scoreBurst.offsetWidth;
+    elements.scoreBurst.classList.add("show");
+  }
+}
+
+// Moves a tray piece to its board cells while growing it to board size.
+// Returns a function that stops the motion without calling onDone.
+function animateAiMove(item, shape, originQ, originR, onDone) {
+  const trayPiece = elements.tray.querySelector(`[data-uid="${item.uid}"] .piece`);
+  const [q, r] = shape.cells[0];
+  const target = boardCells.get(hexKey(originQ + q, originR + r));
+  if (!trayPiece || !target) {
+    onDone();
+    return () => {};
+  }
+  const layer = elements.dragLayer;
+  const from = trayPiece.getBoundingClientRect();
+  const to = target.getBoundingClientRect();
+  const piece = makePiece(shape, to.width);
+  const width = parseFloat(piece.style.width);
+  const height = parseFloat(piece.style.height);
+  const cellLeft = parseFloat(piece.firstChild.style.left);
+  const cellTop = parseFloat(piece.firstChild.style.top);
+  const slot = trayPiece.parentElement;
+  let timeout;
+  layer.replaceChildren(...piece.childNodes);
+  layer.style.width = `${width}px`;
+  layer.style.height = `${height}px`;
+  layer.style.transformOrigin = "top left";
+  layer.style.transform = `translate3d(${from.left}px, ${from.top}px, 0) scale(${from.width / width}, ${from.height / height})`;
+  layer.classList.add("active");
+  slot.classList.add("dragging");
+  void layer.offsetWidth;
+  layer.classList.add("ai-moving");
+
+  function moveToTarget() {
+    const bounds = target.getBoundingClientRect();
+    const scale = bounds.width / to.width;
+    const left = bounds.left - cellLeft * scale;
+    const top = bounds.top - cellTop * scale;
+    layer.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${scale})`;
+    // A new target starts a new CSS transition, so wait for that motion to finish.
+    window.clearTimeout(timeout);
+    timeout = window.setTimeout(() => {
+      stop();
+      onDone();
+    }, 440);
+  }
+
+  function stop() {
+    window.clearTimeout(timeout);
+    window.removeEventListener("resize", moveToTarget);
+    slot.classList.remove("dragging");
+    layer.classList.remove("active", "ai-moving");
+    layer.style.transformOrigin = "";
+    layer.replaceChildren();
+  }
+  window.addEventListener("resize", moveToTarget);
+  moveToTarget();
+  return stop;
+}
+
+function showModal(title, text, buttonText, options = {}) {
+  elements.modalTitle.textContent = title;
+  elements.modalText.textContent = text;
+  elements.modalButton.textContent = buttonText;
+  elements.modal.classList.toggle("game-over-modal", Boolean(options.gameOver));
+  elements.modalScore.hidden = !options.gameOver || Boolean(options.match);
+  elements.modalScore.textContent = Number(options.score || 0).toLocaleString();
+  elements.modalUndoButton.hidden = !options.showUndo;
+  elements.modalCancelButton.hidden = !options.showCancel;
+  elements.modal.classList.add("is-open");
+  if (options.showCancel) elements.modalCancelButton.focus();
+}
+
+function hideModal() {
+  elements.modal.classList.remove("is-open");
+  elements.modal.classList.remove("game-over-modal");
+  elements.modalUndoButton.hidden = true;
+  elements.modalCancelButton.hidden = true;
+}
+
+Object.assign(window.GenericBlockGame, {
+  elements,
+  buildBoard,
+  buildHexGrid,
+  buildSquareGrid,
+  makePiece,
+  renderGame,
+  renderPreview,
+  clearPreview,
+  animateClear,
+  animateAiMove,
+  showModal,
+  hideModal,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const {
+  getBoardMode,
+  resetAllPreferences,
+  rotationCount,
+  rotateShape,
+  getAllShapes,
+  loadPreferences,
+  savePreferences,
+  shapeDimensions,
+  makePiece,
+  buildHexGrid,
+  buildSquareGrid,
+  APP_VERSION,
+  CHANGELOG,
+  loadSeenVersion,
+  saveSeenVersion,
+} = window.GenericBlockGame;
+
+const panel = document.querySelector("#settingsPanel");
+const closeButton = document.querySelector("#settingsCloseButton");
+const undoSetting = document.querySelector("#undoSetting");
+const gameModeSetting = document.querySelector("#gameModeSetting");
+const aiDifficultySetting = document.querySelector("#aiDifficultySetting");
+const aiDifficultyRow = document.querySelector("#aiDifficultyRow");
+const boardTypeSetting = document.querySelector("#boardTypeSetting");
+const boardSettingsContent = document.querySelector("#boardSettingsContent");
+const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetting");
+const timeTrialDurationRow = document.querySelector("#timeTrialDurationRow");
+const dragInitialOffsetSetting = document.querySelector("#dragInitialOffsetSetting");
+const dragMovingOffsetSetting = document.querySelector("#dragMovingOffsetSetting");
+const dragHorizontalOffsetSetting = document.querySelector("#dragHorizontalOffsetSetting");
+const pieceHueSetting = document.querySelector("#pieceHueSetting");
+const pieceHueValue = document.querySelector("#pieceHueValue");
+const snapOverlapSetting = document.querySelector("#snapOverlapSetting");
+const traySizeSetting = document.querySelector("#traySizeSetting");
+const boardSizeSetting = document.querySelector("#boardSizeSetting");
+const resetBestButton = document.querySelector("#resetBestButton");
+const resetSettingsButton = document.querySelector("#resetSettingsButton");
+const resetConfirmation = document.querySelector("#resetConfirmation");
+const resetConfirmationText = document.querySelector("#resetConfirmationText");
+const cancelResetButton = document.querySelector("#cancelResetButton");
+const confirmResetButton = document.querySelector("#confirmResetButton");
+const pieceList = document.querySelector("#pieceSettingsList");
+const editor = document.querySelector("#shapeEditor");
+const nameInput = document.querySelector("#customPieceName");
+const weightInput = document.querySelector("#customPieceWeight");
+const message = document.querySelector("#designerMessage");
+const clearButton = document.querySelector("#clearDesignerButton");
+const saveButton = document.querySelector("#saveCustomPieceButton");
+const appVersion = document.querySelector("#appVersion");
+const changelogModal = document.querySelector("#changelogModal");
+const changelogVersion = document.querySelector("#changelogVersion");
+const changelogList = document.querySelector("#changelogList");
+const changelogButton = document.querySelector("#changelogButton");
+
+let preferences = loadPreferences();
+let selectedCells = new Set();
+let editorMode = null;
+let callbacks = {};
+let pendingReset = null;
+
+// Small previews make the piece list scannable without relying on IDs alone.
+function makePreview(shape) {
+  const { width, height } = shapeDimensions(shape);
+  const preview = document.createElement("div");
+  preview.className = "settings-piece-preview";
+  preview.append(makePiece(shape, Math.min(9, 46 / width, 46 / height)));
+  return preview;
+}
+
+function renderPieceList() {
+  pieceList.replaceChildren();
+  const customIds = new Set(preferences.customPieces.map(shape => shape.id));
+
+  for (const shape of getAllShapes()) {
+    const setting = preferences.pieces[shape.id] || {};
+    const row = document.createElement("div");
+    row.className = "piece-setting-row";
+
+    const enabled = document.createElement("input");
+    enabled.type = "checkbox";
+    enabled.checked = setting.enabled !== false;
+    enabled.setAttribute("aria-label", `Enable ${shape.name || shape.id}`);
+
+    const preview = makePreview(shape);
+    const label = document.createElement("span");
+    label.className = "piece-setting-name";
+    label.textContent = shape.name || shape.id;
+
+    const frequency = document.createElement("input");
+    frequency.type = "number";
+    frequency.min = "0";
+    frequency.max = "100";
+    frequency.value = String(setting.weight ?? shape.weight);
+    frequency.className = "frequency-input";
+    frequency.setAttribute("aria-label", `${shape.name || shape.id} frequency`);
+
+    const decrease = document.createElement("button");
+    decrease.type = "button";
+    decrease.className = "frequency-button";
+    decrease.textContent = "−";
+    decrease.setAttribute("aria-label", `Decrease ${shape.name || shape.id} frequency`);
+
+    const increase = document.createElement("button");
+    increase.type = "button";
+    increase.className = "frequency-button";
+    increase.textContent = "+";
+    increase.setAttribute("aria-label", `Increase ${shape.name || shape.id} frequency`);
+
+    const frequencyControl = document.createElement("div");
+    frequencyControl.className = "frequency-control";
+    frequencyControl.append(decrease, frequency, increase);
+
+    const setFrequency = value => {
+      const nextValue = Math.max(0, Math.min(100, value));
+      frequency.value = String(nextValue);
+      updatePiece(shape.id, { weight: nextValue });
+    };
+
+    enabled.addEventListener("change", () => updatePiece(shape.id, { enabled: enabled.checked }));
+    decrease.addEventListener("click", () => setFrequency((Number(frequency.value) || 0) - 1));
+    increase.addEventListener("click", () => setFrequency((Number(frequency.value) || 0) + 1));
+    frequency.addEventListener("change", () => setFrequency(Number(frequency.value) || 0));
+
+    row.append(enabled, preview, label, frequencyControl);
+    if (customIds.has(shape.id)) {
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "remove-piece-button";
+      remove.textContent = "×";
+      remove.setAttribute("aria-label", `Delete ${shape.name || shape.id}`);
+      remove.addEventListener("click", () => removeCustomPiece(shape.id));
+      row.append(remove);
+    }
+    pieceList.append(row);
+  }
+}
+
+function updatePiece(id, change) {
+  preferences.pieces[id] = { ...preferences.pieces[id], ...change };
+  saveAndNotify();
+}
+
+function removeCustomPiece(id) {
+  preferences.customPieces = preferences.customPieces.filter(shape => shape.id !== id);
+  delete preferences.pieces[id];
+  saveAndNotify();
+  renderPieceList();
+}
+
+function buildEditor() {
+  const square = getBoardMode() === "square";
+  const build = square ? buildSquareGrid : buildHexGrid;
+  editor.classList.toggle("square-editor", square);
+  document.querySelector("#pieceEditorHint").textContent = `Select ${square ? "square" : "hex"} cells to make a piece.`;
+  build(editor, square ? 5 : 3, (q, r, key) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.cell = key;
+    button.setAttribute("aria-label", `Editor ${square ? "square" : "hex"} ${q}, ${r}`);
+    button.classList.toggle("selected", selectedCells.has(key));
+    button.setAttribute("aria-pressed", String(selectedCells.has(key)));
+    button.addEventListener("click", () => {
+      selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
+      button.classList.toggle("selected", selectedCells.has(key));
+      button.setAttribute("aria-pressed", String(selectedCells.has(key)));
+      message.textContent = "";
+    });
+    return button;
+  });
+}
+
+function clearEditor() {
+  selectedCells.clear();
+  editor.querySelectorAll("button").forEach(button => {
+    button.classList.remove("selected");
+    button.setAttribute("aria-pressed", "false");
+  });
+  nameInput.value = "";
+  message.textContent = "";
+}
+
+// Produces a position-independent key so layouts can be compared reliably.
+function layoutKey(cells) {
+  const minX = Math.min(...cells.map(([x]) => x));
+  const minY = Math.min(...cells.map(([, y]) => y));
+  return cells
+    .map(([x, y]) => [x - minX, y - minY])
+    .sort(([ax, ay], [bx, by]) => ay - by || ax - bx)
+    .map(([x, y]) => `${x},${y}`)
+    .join(";");
+}
+
+// Checks every rotation, so a sideways copy also counts as an existing piece.
+function pieceAlreadyExists(cells) {
+  const candidateKeys = new Set();
+
+  for (let turn = 0; turn < rotationCount(); turn += 1) {
+    candidateKeys.add(layoutKey(rotateShape({ cells }, turn).cells));
+  }
+
+  return getAllShapes().some(shape => candidateKeys.has(layoutKey(shape.cells)));
+}
+
+function saveCustomPiece() {
+  const cells = [...selectedCells].map(key => key.split(",").map(Number));
+  if (!cells.length) {
+    message.textContent = "Select at least one cell.";
+    return;
+  }
+  const [anchorQ, anchorR] = cells[0];
+  const normalized = cells.map(([q, r]) => [q - anchorQ, r - anchorR]);
+  if (pieceAlreadyExists(normalized)) {
+    message.textContent = "This piece already exists, possibly in another orientation.";
+    return;
+  }
+  const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const usedCustomNumbers = preferences.customPieces
+    .map(shape => /^Custom (\d+)$/.exec(shape.name || ""))
+    .filter(Boolean)
+    .map(match => Number(match[1]));
+  const nextCustomNumber = Math.max(0, ...usedCustomNumbers) + 1;
+  const shape = {
+    id,
+    name: nameInput.value.trim() || `Custom ${nextCustomNumber}`,
+    weight: Math.max(1, Number(weightInput.value) || 1),
+    cells: normalized,
+  };
+
+  preferences.customPieces.push(shape);
+  saveAndNotify();
+  clearEditor();
+  renderPieceList();
+  message.textContent = `${shape.name} added.`;
+}
+
+function saveAndNotify() {
+  savePreferences(preferences);
+  callbacks.onChange?.(preferences);
+}
+
+// Accessibility changes apply live without restarting or changing score mode.
+function saveAccessibilityAndNotify() {
+  savePreferences(preferences);
+  callbacks.onAccessibilityChange?.(preferences);
+}
+
+function renderSettings() {
+  preferences = loadPreferences();
+  const mode = getBoardMode();
+  boardTypeSetting.style.setProperty("--selected-index", mode === "hex" ? 0 : 1);
+  boardTypeSetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.boardMode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-selected", String(selected));
+    if (selected) boardSettingsContent.setAttribute("aria-labelledby", button.id);
+  });
+  undoSetting.checked = preferences.undoEnabled;
+  updateGameModeControl();
+  timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
+  timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
+  dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
+  dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
+  dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
+  pieceHueSetting.value = String(preferences.pieceHue);
+  pieceHueValue.textContent = `${preferences.pieceHue}°`;
+  snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
+  traySizeSetting.value = String(preferences.traySize);
+  updateBoardSizeControl(preferences.boardSide);
+  if (editorMode !== mode) {
+    clearEditor();
+    editorMode = mode;
+  }
+  buildEditor();
+  renderPieceList();
+}
+
+function openSettings() {
+  renderSettings();
+  panel.classList.add("is-open");
+  panel.setAttribute("aria-hidden", "false");
+}
+
+function closeSettings() {
+  closeResetConfirmation();
+  panel.classList.remove("is-open");
+  panel.setAttribute("aria-hidden", "true");
+  callbacks.onClose?.();
+}
+
+function clampInteger(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, Math.round(Number(value) || minimum)));
+}
+
+function updateBoardSizeControl(size) {
+  const square = getBoardMode() === "square";
+  const sizes = square ? [6, 9, 12] : [4, 5, 6];
+  const label = square ? "Board size" : "Cells per edge";
+  document.querySelector("#boardSizeLabel").textContent = label;
+  boardSizeSetting.setAttribute("aria-label", label);
+  const selectedIndex = Math.max(0, sizes.indexOf(size));
+  boardSizeSetting.style.setProperty("--selected-index", selectedIndex);
+  boardSizeSetting.querySelectorAll("button").forEach((button, index) => {
+    button.dataset.size = sizes[index];
+    button.textContent = square ? `${sizes[index]}×${sizes[index]}` : sizes[index];
+    const selected = Number(button.dataset.size) === size;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function updateGameModeControl() {
+  const square = getBoardMode() === "square";
+  aiDifficultyRow.hidden = square || !preferences.aiEnabled;
+  updateAiDifficultyControl();
+  gameModeSetting.querySelector('[data-mode="two-player"]').hidden = square;
+  gameModeSetting.querySelector('[data-mode="ai"]').hidden = square;
+  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 4);
+  const mode = preferences.aiEnabled ? "ai" : preferences.twoPlayerEnabled ? "two-player"
+    : preferences.timeTrialEnabled ? "timed" : "unlimited";
+  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player", "ai"].indexOf(mode));
+  gameModeSetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.mode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function updateAiDifficultyControl() {
+  aiDifficultySetting.style.setProperty("--selected-index", ["easy", "medium", "hard"].indexOf(preferences.aiDifficulty));
+  aiDifficultySetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.difficulty === preferences.aiDifficulty;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function openResetConfirmation(type) {
+  pendingReset = type;
+  resetConfirmationText.textContent = type === "score"
+    ? "Reset all Hex and Square top scores to zero? This cannot be undone."
+    : "Restore settings and remove custom pieces for both Hex and Square? This also resets shared accessibility settings and starts fresh games.";
+  resetConfirmation.hidden = false;
+  resetConfirmation.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function closeResetConfirmation() {
+  pendingReset = null;
+  resetConfirmation.hidden = true;
+}
+
+function confirmReset() {
+  if (pendingReset === "score") {
+    callbacks.onResetBest?.();
+  } else if (pendingReset === "settings") {
+    resetAllPreferences();
+    callbacks.onResetSettings?.();
+    clearEditor();
+    renderSettings();
+  }
+  closeResetConfirmation();
+}
+
+// The seen version is saved only once the player closes the changelog.
+function showChangelogIfUpdated() {
+  if (loadSeenVersion() === APP_VERSION) {
+    saveSeenVersion();
+    return;
+  }
+  openChangelog();
+}
+
+function openChangelog() {
+  const entry = CHANGELOG.find(item => item.version === APP_VERSION);
+  changelogVersion.textContent = `Version ${APP_VERSION}`;
+  changelogList.replaceChildren(...(entry?.changes || []).map(change => {
+    const item = document.createElement("li");
+    item.textContent = change;
+    return item;
+  }));
+  changelogModal.classList.add("is-open");
+  changelogButton.focus();
+}
+
+function closeChangelog() {
+  changelogModal.classList.remove("is-open");
+  saveSeenVersion();
+  if (panel.classList.contains("is-open")) appVersion.focus();
+  callbacks.onChangelogClose?.();
+}
+
+function initSettings(options) {
+  callbacks = options;
+  buildEditor();
+  appVersion.textContent = `v${APP_VERSION}`;
+  appVersion.addEventListener("click", openChangelog);
+  changelogButton.addEventListener("click", closeChangelog);
+  showChangelogIfUpdated();
+  boardTypeSetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-board-mode]");
+    if (!button || button.dataset.boardMode === getBoardMode()) return;
+    closeResetConfirmation();
+    callbacks.onBoardChange?.(button.dataset.boardMode);
+    renderSettings();
+  });
+  boardTypeSetting.addEventListener("keydown", event => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const mode = event.key === "Home" ? "hex" : event.key === "End" ? "square"
+      : getBoardMode() === "hex" ? "square" : "hex";
+    const button = boardTypeSetting.querySelector(`[data-board-mode="${mode}"]`);
+    button.click();
+    button.focus();
+  });
+  undoSetting.addEventListener("change", () => {
+    preferences.undoEnabled = undoSetting.checked;
+    saveAndNotify();
+  });
+  gameModeSetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-mode]");
+    if (!button || button.hidden) return;
+    preferences.timeTrialEnabled = button.dataset.mode === "timed";
+    preferences.twoPlayerEnabled = button.dataset.mode === "two-player";
+    preferences.aiEnabled = button.dataset.mode === "ai";
+    updateGameModeControl();
+    timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
+    saveAndNotify();
+  });
+  aiDifficultySetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-difficulty]");
+    if (!button || aiDifficultyRow.hidden || button.dataset.difficulty === preferences.aiDifficulty) return;
+    preferences.aiDifficulty = button.dataset.difficulty;
+    updateAiDifficultyControl();
+    saveAndNotify();
+  });
+  timeTrialDurationSetting.addEventListener("change", () => {
+    preferences.timeTrialSeconds = clampInteger(timeTrialDurationSetting.value, 30, 600);
+    timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
+    saveAndNotify();
+  });
+  dragInitialOffsetSetting.addEventListener("change", () => {
+    preferences.dragInitialOffset = clampInteger(dragInitialOffsetSetting.value, 0, 300);
+    dragInitialOffsetSetting.value = String(preferences.dragInitialOffset);
+    saveAccessibilityAndNotify();
+  });
+  dragMovingOffsetSetting.addEventListener("change", () => {
+    preferences.dragMovingOffset = clampInteger(dragMovingOffsetSetting.value, 0, 400);
+    dragMovingOffsetSetting.value = String(preferences.dragMovingOffset);
+    saveAccessibilityAndNotify();
+  });
+  dragHorizontalOffsetSetting.addEventListener("change", () => {
+    preferences.dragHorizontalOffset = clampInteger(dragHorizontalOffsetSetting.value, 0, 400);
+    dragHorizontalOffsetSetting.value = String(preferences.dragHorizontalOffset);
+    saveAccessibilityAndNotify();
+  });
+  pieceHueSetting.addEventListener("input", () => {
+    preferences.pieceHue = clampInteger(pieceHueSetting.value, 0, 359);
+    pieceHueValue.textContent = `${preferences.pieceHue}°`;
+    saveAccessibilityAndNotify();
+  });
+  snapOverlapSetting.addEventListener("change", () => {
+    const value = Math.max(1, Math.min(3, Number(snapOverlapSetting.value) || 1));
+    preferences.snapOverlapMultiplier = Math.round(value * 10) / 10;
+    snapOverlapSetting.value = preferences.snapOverlapMultiplier.toFixed(1);
+    saveAccessibilityAndNotify();
+  });
+  traySizeSetting.addEventListener("change", () => {
+    preferences.traySize = clampInteger(traySizeSetting.value, 1, 8);
+    traySizeSetting.value = String(preferences.traySize);
+    saveAndNotify();
+  });
+  boardSizeSetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-size]");
+    if (!button) return;
+    preferences.boardSide = Number(button.dataset.size);
+    updateBoardSizeControl(preferences.boardSide);
+    saveAndNotify();
+  });
+
+  document.querySelectorAll("[data-step-target]").forEach(button => {
+    button.addEventListener("click", () => {
+      const input = document.querySelector(`#${button.dataset.stepTarget}`);
+      const minimum = Number(input.min);
+      const maximum = Number(input.max);
+      const change = Number(button.dataset.step);
+      input.value = String(Math.max(minimum, Math.min(maximum, (Number(input.value) || 0) + change)));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+  resetBestButton.addEventListener("click", () => openResetConfirmation("score"));
+  resetSettingsButton.addEventListener("click", () => openResetConfirmation("settings"));
+  cancelResetButton.addEventListener("click", closeResetConfirmation);
+  confirmResetButton.addEventListener("click", confirmReset);
+  closeButton.addEventListener("click", closeSettings);
+  panel.addEventListener("click", event => {
+    if (event.target === panel) closeSettings();
+  });
+  clearButton.addEventListener("click", clearEditor);
+  saveButton.addEventListener("click", saveCustomPiece);
+}
+
+Object.assign(window.GenericBlockGame, { initSettings, openSettings, closeSettings });
+}());
+
+</script>
+  <script>
+"use strict";
+
+(function () {
+const {
+  CONFIG,
+  cloneBoard,
+  getBoardMode,
+  setBoardMode,
+  getBoardSide,
+  getBoardDimensions,
+  boardCellAt,
+  placementDistance,
+  rotationCount,
+  resetAllScores,
+  resetSavedGames,
+  randomShape,
+  getConfiguredShapes,
+  shapeById,
+  shapeDimensions,
+  rotateShape,
+  canPlace,
+  canPlaceAnywhere,
+  clearCells,
+  createEmptyBoard,
+  createMatch,
+  cloneMatch,
+  matchPlayerColor,
+  scorePlacement,
+  recordMatchPlacement,
+  endMatchTurn,
+  chooseAiMove,
+  fillShape,
+  findCompletedCells,
+  loadBestScore,
+  loadModifiedBestScore,
+  loadTimedBestScore,
+  loadGame,
+  saveBestScore,
+  saveModifiedBestScore,
+  saveTimedBestScore,
+  saveGame,
+  animateClear,
+  animateAiMove,
+  buildBoard,
+  clearPreview,
+  elements,
+  hideModal: hideModalView,
+  makePiece,
+  renderGame,
+  renderPreview,
+  showModal,
+  initSettings,
+  openSettings,
+  loadPreferences,
+  isDefaultPreferences,
+  isDefaultTimedPreferences,
+} = window.GenericBlockGame;
+
+let activeTimed = loadPreferences().timeTrialEnabled;
+let state = createInitialState(activeTimed);
+let bestScore = loadBestScore();
+let modifiedBestScore = loadModifiedBestScore();
+let timedBestScore = loadTimedBestScore(false);
+let timedModifiedBestScore = loadTimedBestScore(true);
+let drag = null;
+let timerInterval = null;
+let lastTimerTick = 0;
+let placementView = null;
+let placementPending = false;
+let boardChangeId = 0;
+let aiTimeout = null;
+let stopAiFlight = () => {};
+let modalAction = startNewGame;
+
+function hideModal() {
+  hideModalView();
+  modalAction = startNewGame;
+  scheduleAiMove();
+}
+
+function isAiTurn() {
+  return Boolean(state.aiOpponent && state.match?.player === 1 && !state.gameOver);
+}
+
+function aiCanMove() {
+  return isAiTurn() && !placementPending && !document.hidden
+    && !elements.settingsPanel.classList.contains("is-open")
+    && !elements.modal.classList.contains("is-open")
+    && !elements.changelogModal.classList.contains("is-open");
+}
+
+function scheduleAiMove() {
+  window.clearTimeout(aiTimeout);
+  aiTimeout = null;
+  if (!aiCanMove()) return;
+  const changeId = boardChangeId;
+  aiTimeout = window.setTimeout(() => {
+    aiTimeout = null;
+    if (changeId !== boardChangeId || !aiCanMove()) return;
+    const move = chooseAiMove(state, loadPreferences().aiDifficulty);
+    if (!move) { passTurn(true); return; }
+    const item = state.tray.find(piece => piece.uid === move.uid && !piece.used);
+    if (!item) return;
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    if (!canPlace(state.board, shape, move.q, move.r)) return;
+    // Pending blocks other input and AI scheduling while the piece is moving.
+    placementPending = true;
+    stopAiFlight = animateAiMove(item, shape, move.q, move.r, () => {
+      stopAiFlight = () => {};
+      if (changeId !== boardChangeId) return;
+      placementPending = false;
+      placePiece(item, shape, move.q, move.r);
+    });
+  }, 400);
+}
+
+function cancelAiFlight() {
+  stopAiFlight();
+  stopAiFlight = () => {};
+}
+
+// Creates all mutable values for a completely new game.
+function createInitialState(timed = activeTimed) {
+  const preferences = loadPreferences();
+  const size = preferences.boardSide;
+  return {
+    board: createEmptyBoard(size),
+    score: 0,
+    streak: 0,
+    scoringVersion: 2,
+    tray: [],
+    history: [],
+    gameOver: false,
+    match: preferences.twoPlayerEnabled || preferences.aiEnabled ? createMatch() : null,
+    aiOpponent: preferences.aiEnabled,
+    timedMode: timed,
+    timerStarted: false,
+    timeRemainingMs: timed ? preferences.timeTrialSeconds * 1000 : null,
+  };
+}
+
+// Supplies renderGame with the current board-aware placement check.
+function isShapePlaceable(shape) {
+  return canPlaceAnywhere(state.board, shape);
+}
+
+function getPreviewClearCells(shape, originQ, originR) {
+  const previewBoard = cloneBoard(state.board);
+  fillShape(previewBoard, shape, originQ, originR);
+  const completed = findCompletedCells(previewBoard);
+  return completed.zoneCount ? completed.cells : null;
+}
+
+function render() {
+  renderGame(placementView || state, activeBestScore(), activeBestScoreLabel(), isShapePlaceable, beginDrag);
+  applyPreferences();
+  renderTimer();
+  scheduleAiMove();
+}
+
+function settingsAreModified() {
+  const preferences = loadPreferences();
+  return activeTimed
+    ? !isDefaultTimedPreferences(preferences)
+    : !isDefaultPreferences(preferences);
+}
+
+function activeBestScore() {
+  if (activeTimed) {
+    return settingsAreModified() ? timedModifiedBestScore : timedBestScore;
+  }
+  return settingsAreModified() ? modifiedBestScore : bestScore;
+}
+
+function activeBestScoreLabel() {
+  if (activeTimed) {
+    return settingsAreModified() ? "Best timed score (modified)" : "Best timed score";
+  }
+  return settingsAreModified() ? "Best score (modified)" : "Best score";
+}
+
+// Settings affect controls immediately without resetting the current board.
+function applyPreferences() {
+  const preferences = loadPreferences();
+  elements.undoButton.classList.toggle("setting-hidden", !preferences.undoEnabled);
+  CONFIG.drag.baseLiftPx = preferences.dragInitialOffset;
+  CONFIG.drag.maxExtraLiftPx = preferences.dragMovingOffset;
+  CONFIG.drag.maxHorizontalOffsetPx = preferences.dragHorizontalOffset;
+  CONFIG.drag.invalidMoveResistance = Math.max(0, preferences.snapOverlapMultiplier - 1);
+  const view = placementView || state;
+  document.documentElement.style.setProperty("--piece-hue",
+    view.match ? (matchPlayerColor(view, view.match.player) === "red" ? 0 : 212) : preferences.pieceHue);
+  elements.passButton.hidden = !state.match;
+  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver || isAiTurn();
+  elements.undoButton.disabled = !canUndo();
+}
+
+function canUndo() {
+  return loadPreferences().undoEnabled && state.history.length > 0
+    && !placementPending && !drag && !isAiTurn()
+    && !(activeTimed && state.timerStarted && state.timeRemainingMs <= 0);
+}
+
+// Any setting change begins a clean run under the newly selected rules.
+function restartForSettingsChange() {
+  const preferences = loadPreferences();
+  cleanupDrag();
+  cancelAiFlight();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
+  stopTimer();
+  activeTimed = preferences.timeTrialEnabled;
+  state = createInitialState(activeTimed);
+  hideModal();
+  buildBoard(preferences.boardSide);
+  deliverTray();
+}
+
+function refreshBestScores() {
+  bestScore = loadBestScore();
+  modifiedBestScore = loadModifiedBestScore();
+  timedBestScore = loadTimedBestScore(false);
+  timedModifiedBestScore = loadTimedBestScore(true);
+}
+
+function switchBoardMode(mode) {
+  if (mode === getBoardMode()) return;
+  cleanupDrag();
+  cancelAiFlight();
+  stopTimer();
+  boardChangeId += 1;
+  placementView = null;
+  placementPending = false;
+  if (state.tray.length) saveGame(state);
+  setBoardMode(mode);
+  refreshBestScores();
+  const preferences = loadPreferences();
+  activeTimed = preferences.timeTrialEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(false);
+}
+
+// A new tray also becomes the earliest point that Undo may return to.
+function prepareTray() {
+  const traySize = loadPreferences().traySize;
+  state.tray = Array.from({ length: traySize }, (_, index) => ({
+    uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+    shapeId: randomShape().id,
+    rotation: Math.floor(Math.random() * rotationCount()),
+    used: false,
+  }));
+  ensureTrayHasPlaceablePiece();
+  state.history = [];
+  state.restoredTrayItemUid = null;
+}
+
+function showNewTray() {
+  elements.tray.classList.add("new-tray");
+  window.setTimeout(() => elements.tray.classList.remove("new-tray"), 360);
+}
+
+function deliverTray() {
+  prepareTray();
+  render();
+  showNewTray();
+  saveGame(state);
+  checkGameOver();
+}
+
+function getPlaceableTrayItem(index) {
+  const configuredShapes = getConfiguredShapes();
+  const enabledShapes = configuredShapes.filter(shape => shape.enabled && shape.weight > 0);
+  const pool = enabledShapes.length ? enabledShapes : configuredShapes;
+
+  for (const shape of pool) {
+    for (let rotation = 0; rotation < rotationCount(); rotation += 1) {
+      const rotatedShape = rotateShape(shape, rotation);
+      if (canPlaceAnywhere(state.board, rotatedShape)) {
+        return {
+          uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
+          shapeId: shape.id,
+          rotation,
+          used: false,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+function ensureTrayHasPlaceablePiece() {
+  const hasPlaceablePiece = state.tray.some(item => {
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    return canPlaceAnywhere(state.board, shape);
+  });
+  if (hasPlaceablePiece) return;
+
+  const placeableItem = getPlaceableTrayItem(0);
+  if (placeableItem) state.tray[0] = placeableItem;
+}
+
+// Stores the exact state before a move so Undo can restore it.
+function snapshot() {
+  return {
+    board: cloneBoard(state.board),
+    score: state.score,
+    streak: state.streak,
+    tray: state.tray.map(item => ({ ...item })),
+    match: cloneMatch(state.match),
+  };
+}
+
+function placePiece(item, shape, originQ, originR) {
+  if (state.gameOver || placementPending || expireTimeTrialIfNeeded()) return;
+  if (item.used || !canPlace(state.board, shape, originQ, originR)) return;
+  placementPending = true;
+  const changeId = boardChangeId;
+  if (activeTimed && !state.timerStarted) {
+    state.timerStarted = true;
+    startTimer();
+  }
+  state.history.push(snapshot());
+  fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
+  item.used = true;
+
+  const completed = findCompletedCells(state.board);
+  const matchPoints = state.match ? recordMatchPlacement(state.match, completed) : 0;
+  const scored = scorePlacement(state.streak, completed);
+  state.streak = scored.streak;
+  const gained = state.match ? matchPoints : scored.points;
+  state.score += gained;
+  const trayFinished = state.tray.every(piece => piece.used);
+  // Keep the old board and tray only for display. Saves contain the whole move.
+  if (completed.zoneCount || trayFinished) {
+    placementView = { ...state, board: cloneBoard(state.board),
+      tray: state.tray.map(piece => ({ ...piece })), match: cloneMatch(state.match) };
+  }
+  clearCells(state.board, completed.cells);
+  if (trayFinished) {
+    if (state.match) endMatchTurn(state.match);
+    prepareTray();
+  }
+  checkGameOver(false);
+  updateBestScore();
+  saveGame(state);
+  render();
+  if (completed.zoneCount) animateClear(completed.cells, gained);
+  const delay = (completed.zoneCount ? 280 : 0) + (trayFinished ? 80 : 0);
+  if (delay) {
+    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayFinished); }, delay);
+  } else finishPlacement();
+}
+
+// Ending an effect never changes the saved board, tray, or player.
+function finishPlacement(trayFinished = false) {
+  placementView = null;
+  placementPending = false;
+  render();
+  if (trayFinished) showNewTray();
+  if (state.gameOver) showCurrentResult();
+}
+
+// Undo history is discarded whenever a new tray is delivered.
+function undo() {
+  if (expireTimeTrialIfNeeded() || !canUndo()) return;
+  const previous = state.history.pop();
+  if (!previous) return;
+
+  const remainingHistory = state.history;
+  const restoredItem = previous.tray.find((item, index) => {
+    const currentItem = state.tray[index];
+    return !item.used && currentItem?.used;
+  });
+  state.board = previous.board;
+  state.score = previous.score;
+  state.streak = previous.streak;
+  state.tray = previous.tray;
+  state.match = cloneMatch(previous.match);
+  state.history = remainingHistory;
+  state.restoredTrayItemUid = restoredItem?.uid || null;
+  state.gameOver = false;
+  hideModal();
+  render();
+  elements.undoButton.classList.add("rewinding");
+  window.setTimeout(() => {
+    elements.undoButton.classList.remove("rewinding");
+  }, 240);
+  saveGame(state);
+  startTimer();
+}
+
+function updateBestScore() {
+  if (state.match) return;
+  if (activeTimed && settingsAreModified()) {
+    if (state.score > timedModifiedBestScore) {
+      timedModifiedBestScore = state.score;
+      saveTimedBestScore(timedModifiedBestScore, true);
+    }
+  } else if (activeTimed) {
+    if (state.score > timedBestScore) {
+      timedBestScore = state.score;
+      saveTimedBestScore(timedBestScore, false);
+    }
+  } else if (settingsAreModified()) {
+    if (state.score > modifiedBestScore) {
+      modifiedBestScore = state.score;
+      saveModifiedBestScore(modifiedBestScore);
+    }
+  } else if (state.score > bestScore) {
+    bestScore = state.score;
+    saveBestScore(bestScore);
+  }
+}
+
+function checkGameOver(showResult = true) {
+  if (state.match) return;
+  const remaining = state.tray.filter(item => !item.used);
+  const noMovesRemain = remaining.length
+    && remaining.every(item => {
+      const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+      return !isShapePlaceable(shape);
+    });
+
+  if (!noMovesRemain) return;
+
+  state.gameOver = true;
+  stopTimer();
+  if (showResult) showCurrentResult();
+  saveGame(state);
+}
+
+function showMatchResult() {
+  const [firstScore, secondScore] = state.match.scores;
+  const firstName = state.aiOpponent ? "You" : "Red";
+  const secondName = state.aiOpponent ? "AI" : "Blue";
+  const result = firstScore === secondScore ? "It's a draw" : firstScore > secondScore
+    ? (state.aiOpponent ? "You win" : "Red wins") : `${secondName} wins`;
+  modalAction = startNewGame;
+  showModal(result, `${firstName}: ${firstScore.toLocaleString()} points. ${secondName}: ${secondScore.toLocaleString()} points.`,
+    "Play again", { gameOver: true, match: true });
+}
+
+function passTurn(fromAi = false) {
+  if (!state.match || state.gameOver || placementPending || drag) return;
+  if (isAiTurn() && !fromAi) return;
+  hideModal();
+  state.gameOver = endMatchTurn(state.match, true);
+  state.history = [];
+  if (state.gameOver) {
+    render();
+    showMatchResult();
+    saveGame(state);
+  } else {
+    deliverTray();
+  }
+}
+
+function requestPass() {
+  if (!state.match || state.gameOver || placementPending || drag || isAiTurn()) return;
+  const canStillPlace = state.tray.some(item => !item.used
+    && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+  if (!canStillPlace) {
+    passTurn();
+    return;
+  }
+  const player = matchPlayerColor(state, state.match.player) === "red" ? "Red" : "Blue";
+  modalAction = passTurn;
+  const endsMatch = state.match.consecutivePasses === 1;
+  showModal(`${player}, pass?`,
+    `You can still place a piece. Discard the rest of this tray and end your turn?${endsMatch ? " This pass will end the game." : ""}`,
+    "Pass", { showCancel: true });
+}
+
+function formatTime(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function renderTimer() {
+  elements.timerDisplay.hidden = !activeTimed;
+  if (!activeTimed) return;
+  elements.timerDisplay.textContent = formatTime(state.timeRemainingMs || 0);
+  elements.timerDisplay.classList.toggle("ending", state.timeRemainingMs <= 30000);
+}
+
+function startTimer() {
+  stopTimer();
+  if (expireTimeTrialIfNeeded()) return;
+  if (!activeTimed || !state.timerStarted || state.gameOver) {
+    renderTimer();
+    return;
+  }
+
+  lastTimerTick = Date.now();
+  timerInterval = window.setInterval(() => {
+    updateRemainingTime();
+    renderTimer();
+
+    if (state.timeRemainingMs <= 0) {
+      finishTimeTrial();
+    } else if (Math.ceil(state.timeRemainingMs / 1000) % 5 === 0) {
+      saveGame(state);
+    }
+  }, 250);
+}
+
+function updateRemainingTime() {
+  if (timerInterval === null) return;
+  const now = Date.now();
+  state.timeRemainingMs = Math.max(0, state.timeRemainingMs - (now - lastTimerTick));
+  lastTimerTick = now;
+}
+
+function expireTimeTrialIfNeeded() {
+  updateRemainingTime();
+  if (!activeTimed || !state.timerStarted || state.timeRemainingMs > 0) return false;
+  if (!state.gameOver) finishTimeTrial();
+  return true;
+}
+
+function stopTimer() {
+  updateRemainingTime();
+  if (timerInterval !== null) {
+    window.clearInterval(timerInterval);
+  }
+  timerInterval = null;
+  renderTimer();
+}
+
+function finishTimeTrial() {
+  stopTimer();
+  boardChangeId += 1;
+  placementView = null;
+  placementPending = false;
+  cleanupDrag();
+  state.timeRemainingMs = 0;
+  state.gameOver = true;
+  updateBestScore();
+  render();
+  showModal(
+    "Time's up",
+    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
+    "Play again",
+    { gameOver: true, score: state.score, showUndo: false },
+  );
+  saveGame(state);
+}
+
+// Starts a drag from the entire large tray slot, not just the colored cells.
+function beginDrag(event) {
+  if (state.gameOver || placementPending || isAiTurn() || expireTimeTrialIfNeeded()) return;
+  if (drag || event.isPrimary === false) return;
+  if (event.button !== undefined && event.button !== 0) return;
+  if (elements.modal.classList.contains("is-open")) return;
+
+  const slot = event.currentTarget;
+  const item = state.tray.find(piece => piece.uid === slot.dataset.uid);
+  if (!item || item.used || slot.classList.contains("disabled")) return;
+
+  event.preventDefault();
+  try {
+    slot.setPointerCapture(event.pointerId);
+  } catch {
+    // Window-level listeners below still keep the drag working if capture fails.
+  }
+  slot.classList.add("dragging");
+
+  const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+  const boardRect = elements.board.getBoundingClientRect();
+  const boardSize = getBoardDimensions(state.board);
+  const cellSize = boardRect.width / boardSize.width;
+  const piece = makePiece(shape, cellSize);
+  const { width, height, minX, minY } = shapeDimensions(shape);
+  const trayPiece = slot.querySelector(".piece");
+  const trayPieceRect = trayPiece.getBoundingClientRect();
+  const grabX = Math.max(
+    0,
+    Math.min(trayPieceRect.width, event.clientX - trayPieceRect.left),
+  );
+  const grabY = Math.max(
+    0,
+    Math.min(trayPieceRect.height, event.clientY - trayPieceRect.top),
+  );
+
+  elements.dragLayer.replaceChildren(...piece.childNodes);
+  elements.dragLayer.style.width = `${width * cellSize}px`;
+  elements.dragLayer.style.height = `${height * cellSize}px`;
+  elements.dragLayer.classList.add("active");
+
+  drag = {
+    pointerId: event.pointerId,
+    item,
+    shape,
+    slot,
+    cellSize,
+    anchorX: -minX * cellSize,
+    anchorY: -minY * cellSize,
+    startX: event.clientX,
+    startY: event.clientY,
+    grabRatioX: trayPieceRect.width ? grabX / trayPieceRect.width : 0.5,
+    grabRatioY: trayPieceRect.height ? grabY / trayPieceRect.height : 0.5,
+    trayPieceRect,
+    layerWidth: width * cellSize,
+    layerHeight: height * cellSize,
+    layerLeft: 0,
+    layerTop: 0,
+    originQ: null,
+    originR: null,
+    valid: false,
+  };
+
+  applyPreferences();
+
+  updateDrag(event);
+  window.addEventListener("pointermove", updateDrag, { passive: false });
+  window.addEventListener("pointerup", endDrag);
+  window.addEventListener("pointercancel", cancelDrag);
+}
+
+// The lift grows smoothly from baseLiftPx to baseLiftPx + maxExtraLiftPx.
+function liftForPointer(pointerY) {
+  const movedUp = Math.max(0, drag.startY - pointerY);
+  const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
+  const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
+  // Keep the bottom of the board within reach on a short landscape screen.
+  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
+  return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
+    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
+    : lift;
+}
+
+function updateDrag(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  event.preventDefault();
+
+  const { width, height } = shapeDimensions(drag.shape);
+  const lift = liftForPointer(event.clientY);
+  const movedX = event.clientX - drag.startX;
+  const horizontalProgress = Math.min(
+    1,
+    Math.abs(movedX) / CONFIG.drag.extraLiftDistancePx,
+  );
+  const horizontalOffset = Math.sign(movedX)
+    * CONFIG.drag.maxHorizontalOffsetPx
+    * horizontalProgress;
+  const pieceWidth = width * drag.cellSize;
+  const pieceHeight = height * drag.cellSize;
+  const left = event.clientX + horizontalOffset - pieceWidth * drag.grabRatioX;
+  const top = event.clientY - lift - pieceHeight * drag.grabRatioY;
+  drag.layerLeft = left;
+  drag.layerTop = top;
+  elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+
+  // Snap only the board preview. The dragged piece keeps following the pointer.
+  const boardRect = elements.board.getBoundingClientRect();
+  const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
+  const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
+  const candidate = boardCellAt(state.board, anchorX, anchorY, drag.cellSize);
+  const candidateIsValid = canPlace(
+    state.board,
+    drag.shape,
+    candidate.q,
+    candidate.r,
+  );
+
+  // Hold the previous valid origin when the nearest snap point is invalid.
+  // Normal snapping changes at half a cell; resistance extends that boundary.
+  if (drag.valid && !candidateIsValid) {
+    const resistance = Math.max(0, CONFIG.drag.invalidMoveResistance);
+    const distance = placementDistance(state.board, candidate.rawQ - drag.originQ, candidate.rawR - drag.originR);
+    const releaseDistance = 0.5 + resistance;
+
+    if (distance < releaseDistance) {
+      drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originQ, drag.originR);
+      elements.dragLayer.classList.remove("invalid");
+      renderPreview(drag);
+      return;
+    }
+  }
+
+  drag.originQ = candidate.q;
+  drag.originR = candidate.r;
+  drag.valid = candidateIsValid;
+  drag.previewClearCells = drag.valid
+    ? getPreviewClearCells(drag.shape, drag.originQ, drag.originR)
+    : null;
+
+  elements.dragLayer.classList.toggle("invalid", !drag.valid);
+  renderPreview(drag);
+}
+
+function endDrag(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+
+  const completedDrag = drag;
+  if (completedDrag.valid) {
+    cleanupDrag();
+    placePiece(
+      completedDrag.item,
+      completedDrag.shape,
+      completedDrag.originQ,
+      completedDrag.originR,
+    );
+  } else {
+    returnDragToTray();
+  }
+}
+
+function cancelDrag(event) {
+  if (event?.pointerId !== undefined && drag && event.pointerId !== drag.pointerId) return;
+  returnDragToTray();
+}
+
+function detachDragListeners() {
+  if (!drag) return;
+  window.removeEventListener("pointermove", updateDrag);
+  window.removeEventListener("pointerup", endDrag);
+  window.removeEventListener("pointercancel", cancelDrag);
+}
+
+function cleanupDrag() {
+  if (!drag) return;
+  detachDragListeners();
+  drag.slot.classList.remove("dragging");
+  elements.dragLayer.classList.remove("active", "invalid");
+  elements.dragLayer.classList.remove("returning");
+  elements.dragLayer.style.transformOrigin = "";
+  elements.dragLayer.replaceChildren();
+  clearPreview();
+  drag = null;
+  applyPreferences();
+}
+
+function returnDragToTray() {
+  if (!drag) return;
+  const returningDrag = drag;
+  detachDragListeners();
+  clearPreview();
+  elements.dragLayer.classList.remove("invalid");
+  elements.dragLayer.classList.add("returning");
+
+  const targetLeft = returningDrag.trayPieceRect.left;
+  const targetTop = returningDrag.trayPieceRect.top;
+  const scaleX = returningDrag.trayPieceRect.width / returningDrag.layerWidth;
+  const scaleY = returningDrag.trayPieceRect.height / returningDrag.layerHeight;
+  elements.dragLayer.style.transformOrigin = "top left";
+  elements.dragLayer.style.transform = `translate3d(${targetLeft}px, ${targetTop}px, 0) scale(${scaleX}, ${scaleY})`;
+
+  window.setTimeout(() => {
+    if (drag !== returningDrag) return;
+    cleanupDrag();
+  }, 50);
+}
+
+function openResetModal() {
+  if (placementPending || drag) return;
+  modalAction = startNewGame;
+  showModal(
+    activeTimed ? "Restart time trial?" : "Restart game?",
+    activeTimed
+      ? "Your timed board, score, and countdown will restart."
+      : state.match ? `Restart the board and both scores? ${state.aiOpponent ? "You" : "Red"} will start.`
+        : "Your current board and score will be replaced with a fresh game.",
+    "Restart",
+    { showCancel: true },
+  );
+}
+
+function startNewGame() {
+  if (placementPending) return;
+  boardChangeId += 1;
+  window.clearTimeout(aiTimeout);
+  cleanupDrag();
+  stopTimer();
+  hideModal();
+  const cells = new Set(Object.keys(state.board.cells).filter(key => state.board.cells[key]));
+  const hasFilledCells = cells.size > 0;
+  if (hasFilledCells) {
+    placementPending = true;
+    const changeId = boardChangeId;
+    animateClear(cells, 0);
+    window.setTimeout(() => { if (changeId === boardChangeId) resetGameState(); }, 280);
+  } else {
+    resetGameState();
+  }
+}
+
+function resetGameState() {
+  cancelAiFlight();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
+  state = createInitialState(activeTimed);
+  deliverTray();
+}
+
+// Fullscreen must be started from a direct button interaction in most browsers.
+async function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen();
+    }
+  } catch {
+    // Some embedded and mobile browsers expose the API but reject the request.
+  }
+}
+
+function updateFullscreenButton() {
+  const isFullscreen = Boolean(document.fullscreenElement);
+  elements.fullscreenButton.classList.toggle("is-fullscreen", isFullscreen);
+  elements.fullscreenButton.setAttribute(
+    "aria-label",
+    isFullscreen ? "Exit fullscreen" : "Enter fullscreen",
+  );
+  elements.fullscreenButton.title = isFullscreen ? "Exit fullscreen" : "Enter fullscreen";
+}
+
+elements.undoButton.addEventListener("click", undo);
+elements.passButton.addEventListener("click", requestPass);
+elements.resetButton.addEventListener("click", openResetModal);
+elements.settingsButton.addEventListener("click", openSettings);
+elements.modalButton.addEventListener("click", () => modalAction());
+elements.modalCancelButton.addEventListener("click", () => {
+  hideModal();
+  elements.passButton.focus();
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
+});
+elements.modalUndoButton.addEventListener("click", undo);
+elements.fullscreenButton.addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", updateFullscreenButton);
+window.addEventListener("blur", cancelDrag);
+window.addEventListener("resize", () => {
+  cleanupDrag();
+  if (!placementPending) render();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) cancelDrag();
+  scheduleAiMove();
+});
+
+// Prevent browser selection, native dragging, long-press menus, and right click.
+document.addEventListener("contextmenu", event => event.preventDefault());
+document.addEventListener("selectstart", event => event.preventDefault());
+document.addEventListener("dragstart", event => event.preventDefault());
+
+if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) {
+  elements.fullscreenButton.classList.add("unsupported");
+}
+
+initSettings({
+  onChange: restartForSettingsChange,
+  onBoardChange: switchBoardMode,
+  onClose: () => {
+    if (state.gameOver) showCurrentResult();
+    else scheduleAiMove();
+  },
+  onResetSettings: () => {
+    resetSavedGames();
+    restartForSettingsChange();
+  },
+  onAccessibilityChange: applyPreferences,
+  onChangelogClose: scheduleAiMove,
+  onResetBest: () => {
+    resetAllScores();
+    refreshBestScores();
+    elements.bestScore.textContent = "0";
+  },
+});
+
+function showCurrentResult() {
+  if (state.match) {
+    showMatchResult();
+    return;
+  }
+  showModal(
+    activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
+    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
+    "Play again",
+    { gameOver: true, score: state.score, showUndo: canUndo() },
+  );
+}
+
+// Each board restores its own saved game when its tab becomes active.
+function restoreCurrentGame(showWelcome) {
+  const preferences = loadPreferences();
+  const savedState = loadGame(preferences.aiEnabled ? "ai" : Boolean(preferences.twoPlayerEnabled));
+  if (savedState?.tray?.length && savedState.timedMode === activeTimed
+    && getBoardSide(savedState.board) === preferences.boardSide) {
+    state = { ...createInitialState(activeTimed), ...savedState };
+    if (savedState.scoringVersion !== 2) {
+      state.streak = 0;
+      state.scoringVersion = 2;
+      saveGame(state);
+    }
+    buildBoard(getBoardSide(state.board));
+    render();
+    if (state.gameOver) {
+      if (showWelcome) showCurrentResult();
+      else hideModal();
+    } else {
+      hideModal();
+      if (state.tray.every(item => item.used)) {
+        if (state.match) endMatchTurn(state.match);
+        deliverTray();
+      }
+      if (state.timerStarted) startTimer();
+    }
+  } else {
+    buildBoard(getBoardSide(state.board));
+    if (showWelcome) render();
+    else {
+      hideModal();
+      deliverTray();
+    }
+  }
+}
+
+restoreCurrentGame(true);
+}());
+
+</script>
+</body>
+</html>
