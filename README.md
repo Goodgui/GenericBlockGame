@@ -38,6 +38,8 @@ window.GenericBlockGameHost = {
 
 Native mode hides the web fullscreen button before it can paint and uses the fullscreen layout from startup. The host controls fullscreen and system bars; the game makes no browser fullscreen request in this mode. No Capacitor code is needed in the game. If the config is absent or uses `fullscreen: "browser"`, the web button keeps its current action.
 
+For app backup and score events, see [the app profile interface](docs/app-profile.md).
+
 ## VS AI
 
 Choose **VS AI** under **Hex** in Settings, then pick **Easy**, **Medium**, or **Hard**. Easy is the default. You and the computer share a board and take turns using a full tray or passing; the higher score wins when both pass in a row.

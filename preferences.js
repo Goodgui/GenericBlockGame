@@ -10,7 +10,10 @@ function getBoardMode() {
 }
 
 function setBoardMode(mode) {
-  if (mode === "hex" || mode === "square") localStorage.setItem(CONFIG.boardModeKey, mode);
+  if (mode === "hex" || mode === "square") {
+    localStorage.setItem(CONFIG.boardModeKey, mode);
+    window.GenericBlockGame.notifyProfileChanged?.();
+  }
 }
 
 function defaultGlobalPreferences() {
@@ -57,6 +60,7 @@ function writeGlobalSettings(settings) {
   const version = readSettings(CONFIG.globalSettingsKey)?.version;
   localStorage.setItem(CONFIG.globalSettingsKey,
     JSON.stringify(typeof version === "string" ? { ...settings, version } : settings));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Players from before versioning have saved settings but no seen version.
@@ -132,6 +136,7 @@ function resetAllPreferences() {
   for (const mode of ["hex", "square"]) {
     localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
   }
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Internal migration fields do not affect score mode. Piece overrides only

@@ -862,17 +862,17 @@ html[data-native-fullscreen] .fullscreen-button { display: none; }
 .modal.is-open { display: grid; }
 
 .modal.game-over-modal {
-  place-items: start center;
-  padding-top: max(72px, calc(env(safe-area-inset-top) + 62px));
   background: rgba(4,5,7,.3);
   backdrop-filter: blur(3px);
 }
 
 .modal.game-over-modal .modal-card {
   width: min(calc(100% - 28px), 390px);
+  min-width: 0;
   padding: 18px 20px 20px;
 }
 
+.modal.game-over-modal .modal-actions { flex-wrap: wrap; }
 .modal.game-over-modal .modal-card h1 { margin-bottom: 4px; font-size: 24px; }
 .modal.game-over-modal .modal-card p { margin-bottom: 8px; font-size: 13px; }
 
@@ -1494,7 +1494,10 @@ function getBoardMode() {
 }
 
 function setBoardMode(mode) {
-  if (mode === "hex" || mode === "square") localStorage.setItem(CONFIG.boardModeKey, mode);
+  if (mode === "hex" || mode === "square") {
+    localStorage.setItem(CONFIG.boardModeKey, mode);
+    window.GenericBlockGame.notifyProfileChanged?.();
+  }
 }
 
 function defaultGlobalPreferences() {
@@ -1541,6 +1544,7 @@ function writeGlobalSettings(settings) {
   const version = readSettings(CONFIG.globalSettingsKey)?.version;
   localStorage.setItem(CONFIG.globalSettingsKey,
     JSON.stringify(typeof version === "string" ? { ...settings, version } : settings));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Players from before versioning have saved settings but no seen version.
@@ -1616,6 +1620,7 @@ function resetAllPreferences() {
   for (const mode of ["hex", "square"]) {
     localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
   }
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Internal migration fields do not affect score mode. Piece overrides only
@@ -2114,6 +2119,7 @@ function loadBestScore(mode = getBoardMode()) {
 
 function saveBestScore(score, mode = getBoardMode()) {
   localStorage.setItem(storageKeys(mode).bestScoreKey, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 function loadModifiedBestScore(mode = getBoardMode()) {
@@ -2122,6 +2128,7 @@ function loadModifiedBestScore(mode = getBoardMode()) {
 
 function saveModifiedBestScore(score, mode = getBoardMode()) {
   localStorage.setItem(storageKeys(mode).modifiedBestScoreKey, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 function loadTimedBestScore(modified = false, mode = getBoardMode()) {
@@ -2134,6 +2141,7 @@ function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
   const keys = storageKeys(mode);
   const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
   localStorage.setItem(key, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Save the game and recent moves for reload and Undo.
@@ -2246,6 +2254,196 @@ Object.assign(window.GenericBlockGame, {
   saveTimedBestScore,
   saveGame,
   loadGame,
+});
+}());
+
+</script>
+  <script>
+(function () {
+const game = window.GenericBlockGame;
+const boards = ["hex", "square"];
+const scoreNames = ["solo", "modifiedSolo", "timeTrial", "modifiedTimeTrial"];
+const globalNames = ["slowModeEnabled", "dragInitialOffset", "dragMovingOffset", "dragHorizontalOffset", "pieceHue"];
+const modeNames = ["undoEnabled", "pieces", "customPieces", "frequencyVersion", "boardSettingsVersion",
+  "snapOverlapMultiplier", "traySize", "boardSide", "timeTrialEnabled", "twoPlayerEnabled", "aiEnabled", "aiDifficulty", "timeTrialSeconds"];
+const listeners = new Set();
+let restoring = false;
+
+function emit(event) {
+  if (restoring) return;
+  try { window.GenericBlockGameHost?.onEvent?.(JSON.parse(JSON.stringify(event))); }
+  catch (error) { window.console?.error("Game host listener failed", error); }
+  for (const listener of listeners) {
+    try { listener(JSON.parse(JSON.stringify(event))); }
+    catch (error) { window.console?.error("Game host listener failed", error); }
+  }
+}
+
+function object(value, keys, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || Object.keys(value).some(key => !keys.includes(key))
+    || keys.some(key => !Object.hasOwn(value, key))) throw new Error(`Invalid ${label}.`);
+}
+
+function number(value, min, max, integer = true) {
+  if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+    throw new Error("Invalid profile number.");
+  }
+}
+
+function boolean(value) {
+  if (typeof value !== "boolean") throw new Error("Invalid profile switch.");
+}
+
+function validateProfile(input) {
+  const serialized = JSON.stringify(input);
+  if (typeof serialized !== "string") throw new Error("Invalid profile.");
+  if (serialized.length > 262144) throw new Error("Profile is too large.");
+  const profile = JSON.parse(serialized);
+  object(profile, ["version", "settings", "bests"], "profile");
+  if (profile.version !== 1) throw new Error("Unsupported profile version.");
+  object(profile.settings, ["boardMode", "global", ...boards], "settings");
+  if (!boards.includes(profile.settings.boardMode)) throw new Error("Invalid board mode.");
+  object(profile.settings.global, globalNames, "shared settings");
+  const global = profile.settings.global;
+  boolean(global.slowModeEnabled);
+  number(global.dragInitialOffset, 0, 300);
+  number(global.dragMovingOffset, 0, 400);
+  number(global.dragHorizontalOffset, 0, 400);
+  number(global.pieceHue, 0, 359);
+  object(profile.bests, boards, "best scores");
+  for (const board of boards) {
+    const mode = profile.settings[board];
+    object(mode, modeNames, `${board} settings`);
+    for (const name of ["undoEnabled", "timeTrialEnabled", "twoPlayerEnabled", "aiEnabled"]) boolean(mode[name]);
+    if (board === "square" && (mode.aiEnabled || mode.twoPlayerEnabled)) throw new Error("Invalid Square match.");
+    if ((mode.aiEnabled && mode.twoPlayerEnabled) || ((mode.aiEnabled || mode.twoPlayerEnabled) && mode.timeTrialEnabled)) {
+      throw new Error("Invalid game mode.");
+    }
+    if (!["easy", "medium", "hard"].includes(mode.aiDifficulty)) throw new Error("Invalid AI setting.");
+    if (mode.frequencyVersion !== 2 || mode.boardSettingsVersion !== 1) throw new Error("Unsupported settings version.");
+    number(mode.snapOverlapMultiplier, 1, 3, false);
+    number(mode.traySize, 1, 8);
+    number(mode.timeTrialSeconds, 30, 600);
+    if (!(board === "hex" ? [4, 5, 6] : [6, 9, 12]).includes(mode.boardSide)) throw new Error("Invalid board size.");
+    if (!mode.pieces || typeof mode.pieces !== "object" || Array.isArray(mode.pieces)
+      || Object.keys(mode.pieces).length > 256) throw new Error("Invalid piece settings.");
+    for (const [id, setting] of Object.entries(mode.pieces)) {
+      if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id) || ["__proto__", "constructor", "prototype"].includes(id)
+        || !setting || typeof setting !== "object" || Array.isArray(setting)
+        || Object.keys(setting).some(key => !["enabled", "weight"].includes(key))) throw new Error("Invalid piece setting.");
+      if (setting.enabled !== undefined) boolean(setting.enabled);
+      if (setting.weight !== undefined) number(setting.weight, 0, 100, false);
+    }
+    if (!Array.isArray(mode.customPieces) || mode.customPieces.length > 100) throw new Error("Invalid custom pieces.");
+    const ids = new Set();
+    for (const piece of mode.customPieces) {
+      object(piece, ["id", "name", "weight", "cells"], "custom piece");
+      if (typeof piece.id !== "string" || !/^custom-[a-zA-Z0-9_-]{1,90}$/.test(piece.id) || ids.has(piece.id)) {
+        throw new Error("Invalid custom piece ID.");
+      }
+      ids.add(piece.id);
+      if (typeof piece.name !== "string" || piece.name.length > 64) throw new Error("Invalid piece name.");
+      number(piece.weight, 1, 100, false);
+      if (!Array.isArray(piece.cells) || !piece.cells.length || piece.cells.length > 121) throw new Error("Invalid piece cells.");
+      const cells = new Set();
+      for (const cell of piece.cells) {
+        if (!Array.isArray(cell) || cell.length !== 2) throw new Error("Invalid piece cell.");
+        cell.forEach(value => number(value, -20, 20));
+        if (cells.has(cell.join(","))) throw new Error("Duplicate piece cell.");
+        cells.add(cell.join(","));
+      }
+    }
+    object(profile.bests[board], scoreNames, "best scores");
+    for (const score of Object.values(profile.bests[board])) number(score, 0, Number.MAX_SAFE_INTEGER);
+  }
+  return profile;
+}
+
+function exportProfile() {
+  const profile = { version: 1, settings: { boardMode: game.getBoardMode() }, bests: {} };
+  const select = (source, names) => Object.fromEntries(names.map(name => [name, source[name]]));
+  profile.settings.global = select(game.loadPreferences("hex"), globalNames);
+  for (const board of boards) {
+    profile.settings[board] = select(game.loadPreferences(board), modeNames);
+    profile.bests[board] = {
+      solo: game.loadBestScore(board), modifiedSolo: game.loadModifiedBestScore(board),
+      timeTrial: game.loadTimedBestScore(false, board), modifiedTimeTrial: game.loadTimedBestScore(true, board),
+    };
+  }
+  return validateProfile(profile);
+}
+
+function restoreProfile(input) {
+  const profile = validateProfile(input);
+  const local = exportProfile();
+  for (const board of boards) for (const name of scoreNames) {
+    profile.bests[board][name] = Math.max(profile.bests[board][name], local.bests[board][name]);
+  }
+  const changes = [[game.CONFIG.boardModeKey, profile.settings.boardMode]];
+  const globalVersion = game.loadSeenVersion();
+  changes.push([game.CONFIG.globalSettingsKey, JSON.stringify({ ...profile.settings.global, version: globalVersion })]);
+  for (const board of boards) {
+    const keys = game.storageKeys(board);
+    changes.push([keys.settingsKey, JSON.stringify(profile.settings[board])]);
+    for (const [name, key] of [["solo", keys.bestScoreKey], ["modifiedSolo", keys.modifiedBestScoreKey],
+      ["timeTrial", keys.timedBestScoreKey], ["modifiedTimeTrial", keys.timedModifiedBestScoreKey]]) {
+      changes.push([key, String(profile.bests[board][name])]);
+    }
+  }
+  const previous = changes.map(([key]) => [key, localStorage.getItem(key)]);
+  restoring = true;
+  try {
+    for (const [key, value] of changes) localStorage.setItem(key, value);
+  } catch (error) {
+    for (const [key, value] of previous) {
+      if (value === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, value);
+    }
+    throw error;
+  } finally { restoring = false; }
+  emit({ type: "profile-restored" });
+  emit({ type: "profile-changed" });
+  return exportProfile();
+}
+
+function createScoreRun(preferences, board, timed) {
+  return {
+    version: 1, id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    board, mode: timed ? "time-trial" : "solo", rulesVersion: 2,
+    match: preferences.aiEnabled ? "ai" : preferences.twoPlayerEnabled ? "two-player" : "solo",
+    defaultRules: timed ? game.isDefaultTimedPreferences(preferences) : game.isDefaultPreferences(preferences),
+    context: window.GenericBlockGameHost?.getScoreContext?.() ?? null,
+    finishedScore: -1,
+  };
+}
+
+function trackScoreRun(state) {
+  if (!state.scoreRun) {
+    state.scoreRun = createScoreRun(game.loadPreferences(), state.board.type, state.timedMode);
+    state.scoreRun.defaultRules = false;
+  }
+  const run = state.scoreRun;
+  const preferences = game.loadPreferences();
+  run.defaultRules = run.defaultRules === true && run.version === 1 && run.rulesVersion === 2
+    && run.board === state.board.type && run.mode === (state.timedMode ? "time-trial" : "solo")
+    && !state.match && !state.aiOpponent && !preferences.twoPlayerEnabled && !preferences.aiEnabled
+    && (state.timedMode ? game.isDefaultTimedPreferences(preferences) : game.isDefaultPreferences(preferences));
+  return run;
+}
+
+function finishScoreRun(state) {
+  const run = trackScoreRun(state);
+  if (!state.gameOver || state.score <= run.finishedScore) return;
+  run.finishedScore = state.score;
+  emit({ type: "run-finished", run: { ...run, score: state.score } });
+}
+
+Object.assign(game, {
+  profile: { version: 1, export: exportProfile, validate: validateProfile, restore: restoreProfile,
+    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); } },
+  notifyProfileChanged: () => emit({ type: "profile-changed" }),
+  createScoreRun, trackScoreRun, finishScoreRun,
 });
 }());
 
@@ -3558,6 +3756,7 @@ function createInitialState(timed = activeTimed) {
     score: 0,
     streak: 0,
     scoringVersion: 2,
+    scoreRun: window.GenericBlockGame.createScoreRun?.(preferences, getBoardMode(), timed),
     tray: [],
     history: [],
     gameOver: false,
@@ -3777,6 +3976,7 @@ function placePiece(item, shape, originQ, originR) {
     state.timerStarted = true;
     startTimer();
   }
+  window.GenericBlockGame.trackScoreRun?.(state);
   state.history.push(snapshot());
   fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
   item.used = true;
@@ -3887,6 +4087,7 @@ function checkGameOver(showResult = true) {
   if (!noMovesRemain) return;
 
   state.gameOver = true;
+  window.GenericBlockGame.finishScoreRun?.(state);
   stopTimer();
   if (showResult) showCurrentResult();
   saveGame(state);
@@ -3908,6 +4109,7 @@ function passTurn(fromAi = false) {
   if (isAiTurn() && !fromAi) return;
   hideModal();
   state.gameOver = endMatchTurn(state.match, true);
+  if (state.gameOver) window.GenericBlockGame.finishScoreRun?.(state);
   state.history = [];
   if (state.gameOver) {
     render();
@@ -4001,6 +4203,7 @@ function finishTimeTrial() {
   state.timeRemainingMs = 0;
   state.gameOver = true;
   updateBestScore();
+  window.GenericBlockGame.finishScoreRun?.(state);
   render();
   showModal(
     "Time's up",
@@ -4360,6 +4563,8 @@ function restoreCurrentGame(showWelcome) {
   if (savedState?.tray?.length && savedState.timedMode === activeTimed
     && getBoardSide(savedState.board) === preferences.boardSide) {
     state = { ...createInitialState(activeTimed), ...savedState };
+    if (!savedState.scoreRun) state.scoreRun = null;
+    window.GenericBlockGame.trackScoreRun?.(state);
     if (savedState.scoringVersion !== 2) {
       state.streak = 0;
       state.scoringVersion = 2;
@@ -4384,6 +4589,21 @@ function restoreCurrentGame(showWelcome) {
     }
   }
 }
+
+window.GenericBlockGame.profile?.subscribe(event => {
+  if (event.type !== "profile-restored") return;
+  cleanupDrag();
+  cancelAiFlight();
+  stopTimer();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
+  refreshBestScores();
+  activeTimed = loadPreferences().timeTrialEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(true);
+  window.GenericBlockGame.openSettings();
+});
 
 restoreCurrentGame(true);
 }());

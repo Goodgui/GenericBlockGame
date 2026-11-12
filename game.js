@@ -132,6 +132,7 @@ function createInitialState(timed = activeTimed) {
     score: 0,
     streak: 0,
     scoringVersion: 2,
+    scoreRun: window.GenericBlockGame.createScoreRun?.(preferences, getBoardMode(), timed),
     tray: [],
     history: [],
     gameOver: false,
@@ -351,6 +352,7 @@ function placePiece(item, shape, originQ, originR) {
     state.timerStarted = true;
     startTimer();
   }
+  window.GenericBlockGame.trackScoreRun?.(state);
   state.history.push(snapshot());
   fillShape(state.board, shape, originQ, originR, state.match ? state.match.player + 1 : 1);
   item.used = true;
@@ -461,6 +463,7 @@ function checkGameOver(showResult = true) {
   if (!noMovesRemain) return;
 
   state.gameOver = true;
+  window.GenericBlockGame.finishScoreRun?.(state);
   stopTimer();
   if (showResult) showCurrentResult();
   saveGame(state);
@@ -482,6 +485,7 @@ function passTurn(fromAi = false) {
   if (isAiTurn() && !fromAi) return;
   hideModal();
   state.gameOver = endMatchTurn(state.match, true);
+  if (state.gameOver) window.GenericBlockGame.finishScoreRun?.(state);
   state.history = [];
   if (state.gameOver) {
     render();
@@ -575,6 +579,7 @@ function finishTimeTrial() {
   state.timeRemainingMs = 0;
   state.gameOver = true;
   updateBestScore();
+  window.GenericBlockGame.finishScoreRun?.(state);
   render();
   showModal(
     "Time's up",
@@ -934,6 +939,8 @@ function restoreCurrentGame(showWelcome) {
   if (savedState?.tray?.length && savedState.timedMode === activeTimed
     && getBoardSide(savedState.board) === preferences.boardSide) {
     state = { ...createInitialState(activeTimed), ...savedState };
+    if (!savedState.scoreRun) state.scoreRun = null;
+    window.GenericBlockGame.trackScoreRun?.(state);
     if (savedState.scoringVersion !== 2) {
       state.streak = 0;
       state.scoringVersion = 2;
@@ -958,6 +965,21 @@ function restoreCurrentGame(showWelcome) {
     }
   }
 }
+
+window.GenericBlockGame.profile?.subscribe(event => {
+  if (event.type !== "profile-restored") return;
+  cleanupDrag();
+  cancelAiFlight();
+  stopTimer();
+  boardChangeId += 1;
+  placementPending = false;
+  placementView = null;
+  refreshBestScores();
+  activeTimed = loadPreferences().timeTrialEnabled;
+  state = createInitialState(activeTimed);
+  restoreCurrentGame(true);
+  window.GenericBlockGame.openSettings();
+});
 
 restoreCurrentGame(true);
 }());

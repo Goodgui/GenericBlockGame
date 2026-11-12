@@ -43,11 +43,11 @@ function setup(saved = new Map(), host) {
   };
   const context = vm.createContext({
     window, document, Date: class extends Date { static now() { return now; } },
-    localStorage: { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, String(value)) },
+    localStorage: { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, String(value)), removeItem: key => saved.delete(key) },
   });
   const head = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").split("</head>")[0];
   for (const [, script] of head.matchAll(/<script>([\s\S]*?)<\/script>/g)) vm.runInContext(script, context);
-  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "ai.js", "storage.js"]) {
+  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "ai.js", "storage.js", "profile.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
   const game = window.GenericBlockGame;
@@ -545,4 +545,83 @@ test("the AI browser setup restores its supplied board and plays both levels", a
     assert.equal(app.state().match.player, 0);
     assert.equal(app.state().match.scores[1], points);
   }
+});
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: Time Trial sends a score at expiry, with no replay after reload`, () => {
+    const app = setup(new Map(), { getScoreContext: () => "tester-a" });
+    const state = app.seed({ mode, remaining: 100 });
+    state.score = 123;
+    state.scoreRun = app.game.createScoreRun(app.game.loadPreferences(), mode, true);
+    app.game.saveGame(state);
+    const events = [];
+    app.game.profile.subscribe(event => { if (event.type === "run-finished") events.push(event.run); });
+    app.boot();
+    assert.equal(events.length, 0);
+    app.advance(250);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].board, mode);
+    assert.equal(events[0].mode, "time-trial");
+    assert.equal(events[0].score, 123);
+    assert.equal(events[0].defaultRules, true);
+    assert.equal(events[0].context, "tester-a");
+    app.settings().onClose(); app.advance(1000);
+    assert.equal(events.length, 1);
+    const reloaded = setup(app.saved, { getScoreContext: () => "tester-b" });
+    const replay = [];
+    reloaded.game.profile.subscribe(event => replay.push(event)); reloaded.boot(); reloaded.advance(1000);
+    assert.equal(replay.filter(event => event.type === "run-finished").length, 0);
+  });
+
+  test(`${mode}: solo sends a score only when the board becomes blocked`, () => {
+    const app = setup(new Map(), { getScoreContext: () => "tester-a" });
+    const state = app.seed({ mode, timed: false, shapes: ["single", "line4"] });
+    state.score = 100;
+    state.scoreRun = app.game.createScoreRun(app.game.loadPreferences(), mode, false);
+    for (const key of Object.keys(state.board.cells)) {
+      const [q, r] = key.split(",").map(Number);
+      state.board.cells[key] = mode === "hex" ? (((q - r) % 3 + 3) % 3 === 0 ? 0 : 1) : ((q + r) % 2 === 0 ? 0 : 1);
+    }
+    if (mode === "hex") state.board.cells["1,0"] = 0;
+    app.game.saveGame(state);
+    const events = [];
+    app.game.profile.subscribe(event => { if (event.type === "run-finished") events.push(event.run); });
+    app.boot(); assert.equal(events.length, 0);
+    app.place(0, 0, 0); app.advance(400);
+    assert.equal(app.state().gameOver, true);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].mode, "solo");
+    assert.equal(events[0].board, mode);
+    assert.equal(events[0].defaultRules, true);
+  });
+}
+
+test("restoring a profile refreshes live best scores without replacing unfinished saves", () => {
+  const app = setup();
+  const state = app.seed({ timed: false });
+  app.game.saveGame(state);
+  let renderedBest;
+  app.game.renderGame = (state, best) => { renderedBest = best; };
+  app.boot();
+  const unfinished = app.saved.get(app.game.CONFIG.storageKey);
+  const profile = app.game.profile.export(); profile.bests.hex.solo = 999;
+  profile.settings.global.pieceHue = 80;
+  app.game.profile.restore(profile);
+  assert.equal(renderedBest, 999);
+  assert.equal(app.game.loadPreferences().pieceHue, 80);
+  assert.equal(app.saved.get(app.game.CONFIG.storageKey), unfinished);
+});
+
+test("a timer that ends during startup reaches the host before app subscription", () => {
+  const events = [];
+  const app = setup(new Map(), { getScoreContext: () => "tester-a", onEvent: event => events.push(event) });
+  const state = app.seed({ remaining: 0 });
+  state.score = 123;
+  state.scoreRun = app.game.createScoreRun(app.game.loadPreferences(), "hex", true);
+  app.game.saveGame(state);
+  app.boot();
+  const finished = events.filter(event => event.type === "run-finished");
+  assert.equal(finished.length, 1);
+  assert.equal(finished[0].run.score, 123);
+  assert.equal(finished[0].run.defaultRules, true);
 });

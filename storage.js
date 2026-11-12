@@ -10,6 +10,7 @@ function loadBestScore(mode = getBoardMode()) {
 
 function saveBestScore(score, mode = getBoardMode()) {
   localStorage.setItem(storageKeys(mode).bestScoreKey, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 function loadModifiedBestScore(mode = getBoardMode()) {
@@ -18,6 +19,7 @@ function loadModifiedBestScore(mode = getBoardMode()) {
 
 function saveModifiedBestScore(score, mode = getBoardMode()) {
   localStorage.setItem(storageKeys(mode).modifiedBestScoreKey, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 function loadTimedBestScore(modified = false, mode = getBoardMode()) {
@@ -30,6 +32,7 @@ function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
   const keys = storageKeys(mode);
   const key = modified ? keys.timedModifiedBestScoreKey : keys.timedBestScoreKey;
   localStorage.setItem(key, String(score));
+  window.GenericBlockGame.notifyProfileChanged?.();
 }
 
 // Save the game and recent moves for reload and Undo.
