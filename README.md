@@ -18,7 +18,9 @@ Use **Undo** to reverse moves made during the current tray. Open **Settings** to
 
 Turn on **Slow mode** under **Accessibility** to wait for **Continue** after the last piece. You can still undo that move before the next tray or turn starts. Slow mode starts off and works in all game modes. In VS AI, the computer ends its turn on its own.
 
-Trays with more than three pieces stay in one row. Use the arrows at either side to shift the tray one piece left or right. Pieces slide together until three remain, then keep their positions for the rest of the tray. Arrows only show when you can move that way.
+The tray shows up to three pieces at once, in a row or in a column on landscape phones. Use the arrows to shift the tray one piece at a time. Pieces slide together until three remain, then keep their positions for the rest of the tray. Arrows only show when you can move that way.
+
+On landscape phones, **Pickup offset** and **Vertical drag offset** move pieces left toward the board. **Horizontal drag offset** moves them up or down.
 
 Your current game, settings, and top score are saved in the browser memory. If you modify settings that change pieces or the board, your top score will show "modified"
 

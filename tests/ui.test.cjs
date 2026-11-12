@@ -8,7 +8,7 @@ const layouts = [["hex", 4], ["hex", 5], ["hex", 6], ["square", 6], ["square", 9
 const hexSteps = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
 const squareSteps = [[0,-1],[1,0],[0,1],[-1,0]];
 
-function setup(mode, side) {
+function setup(mode, side, landscape = false) {
   class Element {
     get firstChild() { return this.children[0]; }
     get childNodes() { return this.children; }
@@ -46,6 +46,7 @@ function setup(mode, side) {
   const timers = new Map(), listeners = new Map();
   let now = 0, nextTimer = 0;
   const window = {
+    matchMedia: query => ({ matches: query.includes("orientation: landscape") && landscape }),
     setTimeout(action, delay) { const id = ++nextTimer; timers.set(id, { action, at: now + delay }); return id; },
     clearTimeout(id) { timers.delete(id); },
     addEventListener(type, action) {
@@ -83,6 +84,7 @@ function setup(mode, side) {
     .map(cell => [`${cell.dataset.q},${cell.dataset.r}`, cell]));
   const borders = elements.get("#board").children.find(node => node.attributes.class === "chunk-outlines").children;
   return { game, board, state, cells, borders, elements, advance, listeners,
+    setLandscape: value => { landscape = value; },
     emit: type => [...(listeners.get(type) || [])].forEach(action => action()),
     draw: () => game.renderGame(state, 0, "Best score", () => true, () => {}) };
 }
@@ -146,6 +148,49 @@ test("cancelling AI motion removes resize handling and never places the piece", 
 });
 
 for (const mode of ["hex", "square"]) {
+  test(`${mode}: a vertical tray scrolls, keeps its final slots, and rotates back to a row`, () => {
+    const app = setup(mode, mode === "hex" ? 5 : 9, true);
+    const tray = app.elements.get("#tray");
+    tray.clientWidth = 90;
+    tray.clientHeight = 300;
+    app.state.tray = Array.from({ length: 5 }, (_, index) => ({ uid: `vertical-${index}`, shapeId: "line3", used: false }));
+    app.draw();
+    const previous = app.elements.get("#trayPreviousButton");
+    const next = app.elements.get("#trayNextButton");
+    assert.equal(previous.attributes["aria-label"], "Shift tray up one piece");
+    assert.equal(next.attributes["aria-label"], "Shift tray down one piece");
+    assert.ok(tray.children.every(slot => slot.style.gridColumn === "1"));
+    for (const slot of tray.children) {
+      const shape = app.game.shapeById(slot.dataset.shape.split(":")[0]);
+      const dimensions = app.game.shapeDimensions(shape);
+      assert.ok(Number(slot.dataset.cellSize) * dimensions.width <= tray.clientWidth - 12);
+      assert.ok(Number(slot.dataset.cellSize) * dimensions.height <= 86);
+    }
+    app.game.shiftTray(1);
+    assert.equal(tray.style.transform, "translateY(calc(-33.333333333333336% - 1px))");
+    app.game.revealTrayItem("vertical-4");
+    assert.equal(Number(tray.dataset.offset), 2);
+    assert.equal(next.hidden, true);
+    app.state.tray[0].used = true;
+    app.state.tray[1].used = true;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridRow), ["1", "2", "3"]);
+    app.state.tray[3].used = true;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridRow), ["1", "3"]);
+    app.state.tray[3].used = false;
+    app.state.restoredTrayItemUid = "vertical-3";
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridRow), ["1", "2", "3"]);
+    app.setLandscape(false);
+    tray.clientWidth = 360;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridColumn), ["1", "2", "3"]);
+    assert.ok(tray.children.every(slot => slot.style.gridRow === "auto"));
+    assert.equal(next.attributes["aria-label"], "Shift tray right one piece");
+    assert.equal(tray.style.transform, "translateX(calc(0% - 0px))");
+  });
+
   test(`${mode}: trays close gaps, hide arrows at each end, and restore pieces in order`, () => {
     const app = setup(mode, mode === "hex" ? 5 : 9);
     const tray = app.elements.get("#tray");

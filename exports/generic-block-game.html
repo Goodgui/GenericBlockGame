@@ -991,25 +991,95 @@ html[data-native-fullscreen] .fullscreen-button { display: none; }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  :root { --board-size: min(calc(100dvh - 72px), 45vw); }
   .game-shell {
-    width: min(100%, 900px);
+    --landscape-controls-width: 200px;
+    --board-size: min(
+      calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 22px) * var(--board-aspect, 1) + 22px),
+      calc(100vw - max(14px, env(safe-area-inset-left)) - max(14px, env(safe-area-inset-right)) - 104px - var(--landscape-controls-width))
+    );
+    width: 100%;
     height: 100dvh;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1.15fr 1fr;
-    grid-template-rows: 44px 72px minmax(0, 1fr);
-    padding: max(4px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    grid-template-columns: minmax(104px, .6fr) var(--board-size) minmax(var(--landscape-controls-width), 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    padding: env(safe-area-inset-top) max(14px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(14px, env(safe-area-inset-left));
   }
-  .topbar { grid-column: 1 / -1; min-height: 44px; }
-  .board-wrap { grid-column: 1; grid-row: 2 / 4; align-self: center; }
-  .score-panel { grid-column: 2; grid-row: 2; width: auto; min-height: 0; margin: 0 14px; justify-content: space-between; text-align: left; }
-  .best-score { position: static; }
+  .topbar {
+    position: fixed;
+    z-index: 3;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+    left: max(14px, env(safe-area-inset-left));
+    min-height: 44px;
+    padding: 0;
+    flex-direction: row;
+    pointer-events: none;
+  }
+  .topbar button { pointer-events: auto; }
+  .board-wrap { grid-column: 2; grid-row: 1 / -1; align-self: center; padding: 11px; }
+  .score-panel {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    width: 100%;
+    height: calc((var(--board-size) - 22px) / var(--board-aspect, 1) + 22px);
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+    padding: 14px 6px 14px 0;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: space-between;
+    text-align: center;
+  }
+  .score-panel > div:first-child { align-self: flex-end; min-width: 44px; }
+  .best-score { position: static; max-width: 100%; text-align: center; }
+  .score-label { font-size: 12px; }
   .score { font-size: 28px; }
-  .timer-display { margin-bottom: 0; font-size: 24px; }
-  .tray-section { grid-column: 2; grid-row: 3; min-height: 0; padding: 0 14px; gap: 6px; }
-  .tray { height: auto; min-height: 84px; }
-  .tray-slot { min-height: 84px; height: 84px; }
+  .timer-display { font-size: 24px; }
+  .match-scoreboard { grid-template-columns: 1fr; gap: 6px; margin-block: auto; }
+  .turn-status { font-size: 12px; }
+  .tray-section {
+    grid-column: 3;
+    grid-row: 1 / -1;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 22px 0 14px 8px;
+    gap: 8px;
+  }
+  .tray-carousel { height: calc(100% - 8px); align-self: start; min-height: 0; }
+  .tray-viewport { height: 100%; min-height: 0; }
+  .tray {
+    height: 100%;
+    min-height: 0;
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: auto;
+    grid-auto-rows: calc((100% - (var(--tray-columns, 3) - 1) * 3px) / var(--tray-columns, 3));
+  }
+  .tray-slot { min-width: 0; min-height: 0; height: 100%; }
+  .tray-arrow { width: 44px; height: 28px; transform: translateX(-50%); }
+  .tray-arrow svg { width: 24px; height: 24px; transform: rotate(90deg); }
+  #trayPreviousButton { top: -22px; left: 50%; }
+  #trayNextButton { top: auto; right: auto; bottom: -22px; left: 50%; }
+  .tray-actions { align-self: end; min-height: 94px; flex-direction: column; justify-content: flex-end; }
+  .tray-actions .undo-button { min-width: 104px; width: 100%; padding: 0 8px; }
+  #undoButton { order: 1; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 700px) {
+  .game-shell { --landscape-controls-width: 136px; }
+  .tray-section {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) 94px;
+    padding: 52px 0 14px;
+    gap: 22px;
+  }
+  .tray-carousel { height: 100%; }
+  .tray-actions { justify-self: end; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2193,6 +2263,7 @@ const sectionEdges = [];
 let trayUids = [];
 let trayBatchUids = [];
 let trayOffset = 0;
+let trayVertical = false;
 const trayMotions = new Map();
 const trayFixedColumns = new Map();
 const HEX_DIRECTIONS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
@@ -2275,6 +2346,8 @@ function buildBoard(side) {
   sectionEdges.length = 0;
   const board = createEmptyBoard(side);
   const square = board.type === "square";
+  const { width, height } = getBoardDimensions(board);
+  document.querySelector(".game-shell").style.setProperty("--board-aspect", width / height);
   document.body.classList.toggle("square-mode", square);
   document.querySelector(".game-shell").setAttribute("aria-label", `${square ? "Square" : "Hex"} block puzzle game`);
   elements.modalText.textContent = square
@@ -2511,7 +2584,9 @@ function shiftTray(steps, animate = true) {
   if (!animate) elements.tray.classList.add("tray-still");
   elements.tray.dataset.offset = trayOffset;
   elements.tray.dataset.limit = limit;
-  elements.tray.style.transform = `translateX(calc(${-trayOffset * 100 / columns}% - ${trayOffset * 3 / columns}px))`;
+  elements.tray.style.transform = `translate${trayVertical ? "Y" : "X"}(calc(${-trayOffset * 100 / columns}% - ${trayOffset * 3 / columns}px))`;
+  elements.trayPreviousButton.setAttribute("aria-label", `Shift tray ${trayVertical ? "up" : "left"} one piece`);
+  elements.trayNextButton.setAttribute("aria-label", `Shift tray ${trayVertical ? "down" : "right"} one piece`);
   elements.trayPreviousButton.hidden = trayOffset === 0;
   elements.trayNextButton.hidden = trayOffset === limit;
   elements.trayPreviousButton.disabled = trayOffset === 0;
@@ -2530,21 +2605,23 @@ function revealTrayItem(uid, animate = true) {
 }
 
 function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
+  const vertical = Boolean(window.matchMedia?.("(orientation: landscape) and (max-height: 500px)").matches);
   const batchUids = state.tray.map(item => item.uid);
   const sameTray = batchUids.length === trayBatchUids.length
     && batchUids.every((uid, index) => uid === trayBatchUids[index]);
   const slots = new Map([...elements.tray.children].map(slot => [slot.dataset.uid, slot]));
   const previousCenters = new Map();
-  if (sameTray) {
+  if (sameTray && vertical === trayVertical) {
     for (const [uid, slot] of slots) {
       const piece = slot.querySelector(".piece");
       if (!piece) continue;
       const bounds = piece.getBoundingClientRect();
-      previousCenters.set(uid, bounds.left + bounds.width / 2);
+      previousCenters.set(uid, vertical ? bounds.top + bounds.height / 2 : bounds.left + bounds.width / 2);
     }
   }
   for (const motion of trayMotions.values()) motion.cancel();
   trayMotions.clear();
+  trayVertical = vertical;
   if (!sameTray) {
     trayOffset = 0;
     trayFixedColumns.clear();
@@ -2578,10 +2655,13 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     slot.classList.toggle("disabled", !placeable);
     slot.classList.toggle("restored-piece", item.uid === state.restoredTrayItemUid);
     slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
-    slot.style.gridColumn = remaining.length <= 3 ? String(trayFixedColumns.get(item.uid)) : "auto";
+    const position = remaining.length <= 3 ? String(trayFixedColumns.get(item.uid)) : "auto";
+    slot.style.gridColumn = vertical ? "1" : position;
+    slot.style.gridRow = vertical ? position : "auto";
     const { width, height } = shapeDimensions(shape);
-    const slotWidth = (elements.tray.clientWidth || 300) / trayColumns;
-    const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
+    const slotWidth = (elements.tray.clientWidth || 300) / (vertical ? 1 : trayColumns);
+    const pieceHeight = vertical ? ((elements.tray.clientHeight || 300) - 6) / trayColumns - 12 : 82;
+    const cellSize = Math.max(1, Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, pieceHeight / height));
     const shapeKey = `${item.shapeId}:${item.rotation || 0}`;
     if (!slots.has(item.uid) || slot.dataset.shape !== shapeKey || Number(slot.dataset.cellSize) !== cellSize) {
       slot.replaceChildren(makePiece(shape, cellSize));
@@ -2591,7 +2671,7 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     if (!slots.has(item.uid)) slot.addEventListener("pointerdown", onPointerDown);
     if (elements.tray.children[index] !== slot) elements.tray.insertBefore(slot, elements.tray.children[index] || null);
   });
-  // Place the row first, then slide each remaining piece from its old spot.
+  // Place the slots first, then slide each piece from its old spot.
   shiftTray(0, false);
   revealTrayItem(state.restoredTrayItemUid, false);
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -2600,9 +2680,10 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     const piece = slot.querySelector(".piece");
     if (before === undefined || !piece?.animate) continue;
     const bounds = piece.getBoundingClientRect();
-    const distance = before - bounds.left - bounds.width / 2;
+    const distance = before - (vertical ? bounds.top + bounds.height / 2 : bounds.left + bounds.width / 2);
     if (Math.abs(distance) < 0.5) continue;
-    const motion = piece.animate([{ transform: `translateX(${distance}px)` }, { transform: "translateX(0)" }],
+    const axis = vertical ? "Y" : "X";
+    const motion = piece.animate([{ transform: `translate${axis}(${distance}px)` }, { transform: `translate${axis}(0)` }],
       { duration: 220, easing: "ease-out" });
     trayMotions.set(slot.dataset.uid, motion);
     motion.onfinish = () => { if (trayMotions.get(slot.dataset.uid) === motion) trayMotions.delete(slot.dataset.uid); };
@@ -4001,16 +4082,16 @@ function beginDrag(event) {
   window.addEventListener("pointercancel", cancelDrag);
 }
 
-// The lift grows smoothly from baseLiftPx to baseLiftPx + maxExtraLiftPx.
-function liftForPointer(pointerY) {
-  const movedUp = Math.max(0, drag.startY - pointerY);
-  const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
+// Apply the same offsets toward the board and along the tray in either layout.
+function dragOffsetsForPointer(pointerX, pointerY) {
+  const landscape = window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches;
+  const towardBoard = landscape ? drag.startX - pointerX : drag.startY - pointerY;
+  const progress = Math.min(1, Math.max(0, towardBoard) / CONFIG.drag.extraLiftDistancePx);
   const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
-  // Keep the bottom of the board within reach on a short landscape screen.
-  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
-  return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
-    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
-    : lift;
+  const acrossTray = landscape ? pointerY - drag.startY : pointerX - drag.startX;
+  const sideProgress = Math.min(1, Math.abs(acrossTray) / CONFIG.drag.extraLiftDistancePx);
+  const sideOffset = Math.sign(acrossTray) * CONFIG.drag.maxHorizontalOffsetPx * sideProgress;
+  return landscape ? { x: -lift, y: sideOffset } : { x: sideOffset, y: -lift };
 }
 
 function updateDrag(event) {
@@ -4018,19 +4099,11 @@ function updateDrag(event) {
   event.preventDefault();
 
   const { width, height } = shapeDimensions(drag.shape);
-  const lift = liftForPointer(event.clientY);
-  const movedX = event.clientX - drag.startX;
-  const horizontalProgress = Math.min(
-    1,
-    Math.abs(movedX) / CONFIG.drag.extraLiftDistancePx,
-  );
-  const horizontalOffset = Math.sign(movedX)
-    * CONFIG.drag.maxHorizontalOffsetPx
-    * horizontalProgress;
+  const offset = dragOffsetsForPointer(event.clientX, event.clientY);
   const pieceWidth = width * drag.cellSize;
   const pieceHeight = height * drag.cellSize;
-  const left = event.clientX + horizontalOffset - pieceWidth * drag.grabRatioX;
-  const top = event.clientY - lift - pieceHeight * drag.grabRatioY;
+  const left = event.clientX + offset.x - pieceWidth * drag.grabRatioX;
+  const top = event.clientY + offset.y - pieceHeight * drag.grabRatioY;
   drag.layerLeft = left;
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;

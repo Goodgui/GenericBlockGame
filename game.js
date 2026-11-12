@@ -656,16 +656,16 @@ function beginDrag(event) {
   window.addEventListener("pointercancel", cancelDrag);
 }
 
-// The lift grows smoothly from baseLiftPx to baseLiftPx + maxExtraLiftPx.
-function liftForPointer(pointerY) {
-  const movedUp = Math.max(0, drag.startY - pointerY);
-  const progress = Math.min(1, movedUp / CONFIG.drag.extraLiftDistancePx);
+// Apply the same offsets toward the board and along the tray in either layout.
+function dragOffsetsForPointer(pointerX, pointerY) {
+  const landscape = window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches;
+  const towardBoard = landscape ? drag.startX - pointerX : drag.startY - pointerY;
+  const progress = Math.min(1, Math.max(0, towardBoard) / CONFIG.drag.extraLiftDistancePx);
   const lift = CONFIG.drag.baseLiftPx + progress * CONFIG.drag.maxExtraLiftPx;
-  // Keep the bottom of the board within reach on a short landscape screen.
-  const roomBelowBoard = document.documentElement.clientHeight - elements.board.getBoundingClientRect().bottom - 4;
-  return window.matchMedia("(orientation: landscape) and (max-height: 500px)").matches
-    ? Math.min(lift, 24, Math.max(0, roomBelowBoard))
-    : lift;
+  const acrossTray = landscape ? pointerY - drag.startY : pointerX - drag.startX;
+  const sideProgress = Math.min(1, Math.abs(acrossTray) / CONFIG.drag.extraLiftDistancePx);
+  const sideOffset = Math.sign(acrossTray) * CONFIG.drag.maxHorizontalOffsetPx * sideProgress;
+  return landscape ? { x: -lift, y: sideOffset } : { x: sideOffset, y: -lift };
 }
 
 function updateDrag(event) {
@@ -673,19 +673,11 @@ function updateDrag(event) {
   event.preventDefault();
 
   const { width, height } = shapeDimensions(drag.shape);
-  const lift = liftForPointer(event.clientY);
-  const movedX = event.clientX - drag.startX;
-  const horizontalProgress = Math.min(
-    1,
-    Math.abs(movedX) / CONFIG.drag.extraLiftDistancePx,
-  );
-  const horizontalOffset = Math.sign(movedX)
-    * CONFIG.drag.maxHorizontalOffsetPx
-    * horizontalProgress;
+  const offset = dragOffsetsForPointer(event.clientX, event.clientY);
   const pieceWidth = width * drag.cellSize;
   const pieceHeight = height * drag.cellSize;
-  const left = event.clientX + horizontalOffset - pieceWidth * drag.grabRatioX;
-  const top = event.clientY - lift - pieceHeight * drag.grabRatioY;
+  const left = event.clientX + offset.x - pieceWidth * drag.grabRatioX;
+  const top = event.clientY + offset.y - pieceHeight * drag.grabRatioY;
   drag.layerLeft = left;
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;

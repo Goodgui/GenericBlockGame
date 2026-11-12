@@ -10,6 +10,7 @@ const sectionEdges = [];
 let trayUids = [];
 let trayBatchUids = [];
 let trayOffset = 0;
+let trayVertical = false;
 const trayMotions = new Map();
 const trayFixedColumns = new Map();
 const HEX_DIRECTIONS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
@@ -92,6 +93,8 @@ function buildBoard(side) {
   sectionEdges.length = 0;
   const board = createEmptyBoard(side);
   const square = board.type === "square";
+  const { width, height } = getBoardDimensions(board);
+  document.querySelector(".game-shell").style.setProperty("--board-aspect", width / height);
   document.body.classList.toggle("square-mode", square);
   document.querySelector(".game-shell").setAttribute("aria-label", `${square ? "Square" : "Hex"} block puzzle game`);
   elements.modalText.textContent = square
@@ -328,7 +331,9 @@ function shiftTray(steps, animate = true) {
   if (!animate) elements.tray.classList.add("tray-still");
   elements.tray.dataset.offset = trayOffset;
   elements.tray.dataset.limit = limit;
-  elements.tray.style.transform = `translateX(calc(${-trayOffset * 100 / columns}% - ${trayOffset * 3 / columns}px))`;
+  elements.tray.style.transform = `translate${trayVertical ? "Y" : "X"}(calc(${-trayOffset * 100 / columns}% - ${trayOffset * 3 / columns}px))`;
+  elements.trayPreviousButton.setAttribute("aria-label", `Shift tray ${trayVertical ? "up" : "left"} one piece`);
+  elements.trayNextButton.setAttribute("aria-label", `Shift tray ${trayVertical ? "down" : "right"} one piece`);
   elements.trayPreviousButton.hidden = trayOffset === 0;
   elements.trayNextButton.hidden = trayOffset === limit;
   elements.trayPreviousButton.disabled = trayOffset === 0;
@@ -347,21 +352,23 @@ function revealTrayItem(uid, animate = true) {
 }
 
 function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
+  const vertical = Boolean(window.matchMedia?.("(orientation: landscape) and (max-height: 500px)").matches);
   const batchUids = state.tray.map(item => item.uid);
   const sameTray = batchUids.length === trayBatchUids.length
     && batchUids.every((uid, index) => uid === trayBatchUids[index]);
   const slots = new Map([...elements.tray.children].map(slot => [slot.dataset.uid, slot]));
   const previousCenters = new Map();
-  if (sameTray) {
+  if (sameTray && vertical === trayVertical) {
     for (const [uid, slot] of slots) {
       const piece = slot.querySelector(".piece");
       if (!piece) continue;
       const bounds = piece.getBoundingClientRect();
-      previousCenters.set(uid, bounds.left + bounds.width / 2);
+      previousCenters.set(uid, vertical ? bounds.top + bounds.height / 2 : bounds.left + bounds.width / 2);
     }
   }
   for (const motion of trayMotions.values()) motion.cancel();
   trayMotions.clear();
+  trayVertical = vertical;
   if (!sameTray) {
     trayOffset = 0;
     trayFixedColumns.clear();
@@ -395,10 +402,13 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     slot.classList.toggle("disabled", !placeable);
     slot.classList.toggle("restored-piece", item.uid === state.restoredTrayItemUid);
     slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
-    slot.style.gridColumn = remaining.length <= 3 ? String(trayFixedColumns.get(item.uid)) : "auto";
+    const position = remaining.length <= 3 ? String(trayFixedColumns.get(item.uid)) : "auto";
+    slot.style.gridColumn = vertical ? "1" : position;
+    slot.style.gridRow = vertical ? position : "auto";
     const { width, height } = shapeDimensions(shape);
-    const slotWidth = (elements.tray.clientWidth || 300) / trayColumns;
-    const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
+    const slotWidth = (elements.tray.clientWidth || 300) / (vertical ? 1 : trayColumns);
+    const pieceHeight = vertical ? ((elements.tray.clientHeight || 300) - 6) / trayColumns - 12 : 82;
+    const cellSize = Math.max(1, Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, pieceHeight / height));
     const shapeKey = `${item.shapeId}:${item.rotation || 0}`;
     if (!slots.has(item.uid) || slot.dataset.shape !== shapeKey || Number(slot.dataset.cellSize) !== cellSize) {
       slot.replaceChildren(makePiece(shape, cellSize));
@@ -408,7 +418,7 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     if (!slots.has(item.uid)) slot.addEventListener("pointerdown", onPointerDown);
     if (elements.tray.children[index] !== slot) elements.tray.insertBefore(slot, elements.tray.children[index] || null);
   });
-  // Place the row first, then slide each remaining piece from its old spot.
+  // Place the slots first, then slide each piece from its old spot.
   shiftTray(0, false);
   revealTrayItem(state.restoredTrayItemUid, false);
   if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
@@ -417,9 +427,10 @@ function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
     const piece = slot.querySelector(".piece");
     if (before === undefined || !piece?.animate) continue;
     const bounds = piece.getBoundingClientRect();
-    const distance = before - bounds.left - bounds.width / 2;
+    const distance = before - (vertical ? bounds.top + bounds.height / 2 : bounds.left + bounds.width / 2);
     if (Math.abs(distance) < 0.5) continue;
-    const motion = piece.animate([{ transform: `translateX(${distance}px)` }, { transform: "translateX(0)" }],
+    const axis = vertical ? "Y" : "X";
+    const motion = piece.animate([{ transform: `translate${axis}(${distance}px)` }, { transform: `translate${axis}(0)` }],
       { duration: 220, easing: "ease-out" });
     trayMotions.set(slot.dataset.uid, motion);
     motion.onfinish = () => { if (trayMotions.get(slot.dataset.uid) === motion) trayMotions.delete(slot.dataset.uid); };

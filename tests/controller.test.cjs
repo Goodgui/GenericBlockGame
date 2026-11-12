@@ -6,6 +6,7 @@ const vm = require("node:vm");
 
 function setup(saved = new Map(), host) {
   let now = 0;
+  let landscape = false;
   let nextId = 0;
   const timers = new Map();
   const events = {};
@@ -34,7 +35,7 @@ function setup(saved = new Map(), host) {
     GenericBlockGameHost: host,
     addEventListener(type, action) { windowEvents[type] = action; },
     removeEventListener(type) { delete windowEvents[type]; },
-    matchMedia: () => ({ matches: false }),
+    matchMedia: query => ({ matches: landscape && query.includes("orientation: landscape") }),
     setTimeout(action, delay) { const id = ++nextId; timers.set(id, { action, at: now + delay }); return id; },
     clearTimeout: id => timers.delete(id),
     setInterval(action, delay) { const id = ++nextId; timers.set(id, { action, at: now + delay, interval: delay }); return id; },
@@ -113,11 +114,13 @@ function setup(saved = new Map(), host) {
     slot.querySelector = () => ({ getBoundingClientRect: () => rect });
     window.controller.beginDrag({ currentTarget: slot, pointerId: 1, button: 0, isPrimary: true,
       clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, preventDefault() {} });
+    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
   }
   function pointer(type, x, y) {
     windowEvents[type]({ pointerId: 1, clientX: x, clientY: y, preventDefault() {} });
   }
   return { game, saved, context, elements, boot, advance, seed, place, events, document,
+    setLandscape: value => { landscape = value; },
     startDrag, pointer, preview: () => preview,
     state: () => window.controller.state(), result: () => result, displayed: () => displayed,
     settings: () => settings, elapseWithoutTick: milliseconds => now += milliseconds };
@@ -207,6 +210,53 @@ for (const mode of ["hex", "square"]) {
     app.pointer("pointerup", center.x + 64, center.y); app.advance(50);
     assert.equal(Object.values(app.state().board.cells).filter(Boolean).length, 2);
     assert.equal(app.elements.dragLayer.classList.contains("active"), false);
+  });
+}
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: landscape swaps both drag offsets and leaves saved settings intact`, () => {
+    const app = setup();
+    app.document.documentElement.clientHeight = 390;
+    const state = app.seed({ mode, timed: false });
+    const preferences = { ...app.game.loadPreferences(), dragInitialOffset: 40, dragMovingOffset: 80, dragHorizontalOffset: 60 };
+    app.game.savePreferences(preferences);
+    app.game.saveGame(state);
+    app.boot();
+    for (const landscape of [false, true, false]) {
+      app.setLandscape(landscape);
+      const start = app.startDrag();
+      const check = (dx, dy, expectedX, expectedY) => {
+        const x = start.x + dx, y = start.y + dy;
+        app.pointer("pointermove", x, y);
+        const [, left, top] = app.elements.dragLayer.style.transform.match(/translate3d\(([-.\d]+)px, ([-.\d]+)px/).map(Number);
+        const offsetX = left + parseFloat(app.elements.dragLayer.style.width) / 2 - x;
+        const offsetY = top + parseFloat(app.elements.dragLayer.style.height) / 2 - y;
+        assert.ok(Math.abs(offsetX - expectedX) < 0.001, `Expected X offset ${expectedX}, got ${offsetX}`);
+        assert.ok(Math.abs(offsetY - expectedY) < 0.001, `Expected Y offset ${expectedY}, got ${offsetY}`);
+      };
+      if (landscape) {
+        check(0, 0, -40, 0);
+        check(-180, 0, -80, 0);
+        check(-360, 0, -120, 0);
+        check(180, 0, -40, 0);
+        check(0, 180, -40, 30);
+        check(0, -180, -40, -30);
+        check(-180, 180, -80, 30);
+        check(0, 720, -40, 60);
+      } else {
+        check(0, 0, 0, -40);
+        check(0, -180, 0, -80);
+        check(0, -360, 0, -120);
+        check(0, 180, 0, -40);
+        check(180, 0, 30, -40);
+        check(-180, 0, -30, -40);
+        check(180, -180, 30, -80);
+        check(720, 0, 60, -40);
+      }
+      app.pointer("pointercancel", start.x, start.y);
+      app.advance(50);
+    }
+    assert.deepEqual({ ...app.game.loadPreferences() }, preferences);
   });
 }
 
