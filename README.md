@@ -16,13 +16,17 @@ Clears earn points for each cell in the completed line or section. Consecutive c
 
 Use **Undo** to reverse moves made during the current tray. Open **Settings** to switch between **Hex** and **Square**, adjust board and tray sizes, piece frequencies, custom pieces, drag offsets, or saved data.
 
+Turn on **Slow mode** under **Accessibility** to wait for **Continue** after the last piece. You can still undo that move before the next tray or turn starts. Slow mode starts off and works in all game modes. In VS AI, the computer ends its turn on its own.
+
+Trays with more than three pieces stay in one row. Use the arrows at either side to shift the tray one piece left or right. Pieces slide together until three remain, then keep their positions for the rest of the tray. Arrows only show when you can move that way.
+
 Your current game, settings, and top score are saved in the browser memory. If you modify settings that change pieces or the board, your top score will show "modified"
 
 Enable **Time Trial** in Settings to play against a configurable countdown. The timer starts when the first piece is placed.
 
 ## VS AI
 
-Choose **VS AI** under **Hex** in Settings, then pick **Easy**, **Medium**, or **Hard**. You and the computer share a board and take turns using a full tray or passing; the higher score wins when both pass in a row.
+Choose **VS AI** under **Hex** in Settings, then pick **Easy**, **Medium**, or **Hard**. Easy is the default. You and the computer share a board and take turns using a full tray or passing; the higher score wins when both pass in a row.
 
 ## 2 Player
 

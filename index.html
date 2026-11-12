@@ -54,12 +54,23 @@
     </section>
 
     <section class="tray-section" aria-label="Piece tray">
-      <div id="tray" class="tray"></div>
+      <div class="tray-carousel">
+        <button id="trayPreviousButton" class="tray-arrow" type="button" aria-label="Shift tray left one piece" aria-controls="tray" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 32"><path d="M17 5 6 16 17 27"></path></svg>
+        </button>
+        <div class="tray-viewport">
+          <div id="tray" class="tray"></div>
+        </div>
+        <button id="trayNextButton" class="tray-arrow" type="button" aria-label="Shift tray right one piece" aria-controls="tray" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 32"><path d="M7 5 18 16 7 27"></path></svg>
+        </button>
+      </div>
       <div class="tray-actions">
         <button id="undoButton" class="undo-button" type="button" disabled>
           <span aria-hidden="true">↶</span> Undo
         </button>
         <button id="passButton" class="undo-button pass-button" type="button" hidden>Pass</button>
+        <button id="continueButton" class="undo-button" type="button" hidden>Continue</button>
       </div>
     </section>
   </main>
@@ -176,6 +187,11 @@
         <section class="settings-section">
           <h3>Accessibility</h3>
           <p>Applies to Hex and Square.</p>
+          <label class="setting-toggle">
+            <span>Slow mode</span>
+            <input id="slowModeSetting" type="checkbox" aria-describedby="slowModeHint">
+          </label>
+          <p id="slowModeHint">Wait for Continue after the last piece so you can still undo.</p>
           <div class="drag-settings accessibility-settings">
             <label>
               <span>Pickup offset</span>

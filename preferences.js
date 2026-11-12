@@ -14,7 +14,7 @@ function setBoardMode(mode) {
 }
 
 function defaultGlobalPreferences() {
-  return { dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
+  return { slowModeEnabled: false, dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
 }
 
 function defaultModePreferences(mode = getBoardMode()) {
@@ -30,7 +30,7 @@ function defaultModePreferences(mode = getBoardMode()) {
     timeTrialEnabled: false,
     twoPlayerEnabled: false,
     aiEnabled: false,
-    aiDifficulty: "hard",
+    aiDifficulty: "easy",
     timeTrialSeconds: 180,
   };
 }
@@ -118,7 +118,7 @@ function savePreferences(preferences, mode = getBoardMode()) {
 }
 
 function normalizeGameMode(preferences, mode) {
-  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "hard";
+  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "easy";
   if (mode === "square") {
     preferences.twoPlayerEnabled = false;
     preferences.aiEnabled = false;

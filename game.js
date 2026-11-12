@@ -47,6 +47,8 @@ const {
   hideModal: hideModalView,
   makePiece,
   renderGame,
+  shiftTray,
+  revealTrayItem,
   renderPreview,
   showModal,
   initSettings,
@@ -83,7 +85,7 @@ function isAiTurn() {
 }
 
 function aiCanMove() {
-  return isAiTurn() && !placementPending && !document.hidden
+  return isAiTurn() && !isTrayEmpty() && !placementPending && !document.hidden
     && !elements.settingsPanel.classList.contains("is-open")
     && !elements.modal.classList.contains("is-open")
     && !elements.changelogModal.classList.contains("is-open");
@@ -105,6 +107,8 @@ function scheduleAiMove() {
     if (!canPlace(state.board, shape, move.q, move.r)) return;
     // Pending blocks other input and AI scheduling while the piece is moving.
     placementPending = true;
+    revealTrayItem(item.uid, false);
+    applyPreferences();
     stopAiFlight = animateAiMove(item, shape, move.q, move.r, () => {
       stopAiFlight = () => {};
       if (changeId !== boardChangeId) return;
@@ -190,9 +194,35 @@ function applyPreferences() {
   const view = placementView || state;
   document.documentElement.style.setProperty("--piece-hue",
     view.match ? (matchPlayerColor(view, view.match.player) === "red" ? 0 : 212) : preferences.pieceHue);
-  elements.passButton.hidden = !state.match;
+  const trayEmpty = isTrayEmpty();
+  elements.continueButton.hidden = !trayEmpty;
+  elements.continueButton.disabled = placementPending || Boolean(drag) || state.gameOver;
+  elements.passButton.hidden = !state.match || trayEmpty;
   elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver || isAiTurn();
   elements.undoButton.disabled = !canUndo();
+  const trayLocked = placementPending || Boolean(drag);
+  elements.trayPreviousButton.disabled = trayLocked || !(Number(elements.tray.dataset.offset) > 0);
+  elements.trayNextButton.disabled = trayLocked
+    || !(Number(elements.tray.dataset.offset) < Number(elements.tray.dataset.limit));
+}
+
+function isTrayEmpty() {
+  return state.tray.length > 0 && state.tray.every(item => item.used);
+}
+
+function shouldWaitForContinue() {
+  return loadPreferences().slowModeEnabled && !isAiTurn();
+}
+
+function continueTray() {
+  if (!isTrayEmpty() || placementPending || drag || state.gameOver || expireTimeTrialIfNeeded()) return;
+  if (state.match) endMatchTurn(state.match);
+  deliverTray();
+}
+
+function applyAccessibilityPreferences() {
+  applyPreferences();
+  if (!shouldWaitForContinue()) continueTray();
 }
 
 function canUndo() {
@@ -332,13 +362,14 @@ function placePiece(item, shape, originQ, originR) {
   const gained = state.match ? matchPoints : scored.points;
   state.score += gained;
   const trayFinished = state.tray.every(piece => piece.used);
+  const trayAdvanced = trayFinished && !shouldWaitForContinue();
   // Keep the old board and tray only for display. Saves contain the whole move.
   if (completed.zoneCount || trayFinished) {
     placementView = { ...state, board: cloneBoard(state.board),
       tray: state.tray.map(piece => ({ ...piece })), match: cloneMatch(state.match) };
   }
   clearCells(state.board, completed.cells);
-  if (trayFinished) {
+  if (trayAdvanced) {
     if (state.match) endMatchTurn(state.match);
     prepareTray();
   }
@@ -349,16 +380,20 @@ function placePiece(item, shape, originQ, originR) {
   if (completed.zoneCount) animateClear(completed.cells, gained);
   const delay = (completed.zoneCount ? 280 : 0) + (trayFinished ? 80 : 0);
   if (delay) {
-    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayFinished); }, delay);
+    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayAdvanced); }, delay);
   } else finishPlacement();
 }
 
-// Ending an effect never changes the saved board, tray, or player.
-function finishPlacement(trayFinished = false) {
+// Finish the effect, then apply any change to slow mode.
+function finishPlacement(trayAdvanced = false) {
   placementView = null;
   placementPending = false;
+  if (isTrayEmpty() && !state.gameOver && !shouldWaitForContinue()) {
+    continueTray();
+    return;
+  }
   render();
-  if (trayFinished) showNewTray();
+  if (trayAdvanced) showNewTray();
   if (state.gameOver) showCurrentResult();
 }
 
@@ -443,7 +478,7 @@ function showMatchResult() {
 }
 
 function passTurn(fromAi = false) {
-  if (!state.match || state.gameOver || placementPending || drag) return;
+  if (!state.match || isTrayEmpty() || state.gameOver || placementPending || drag) return;
   if (isAiTurn() && !fromAi) return;
   hideModal();
   state.gameOver = endMatchTurn(state.match, true);
@@ -458,7 +493,7 @@ function passTurn(fromAi = false) {
 }
 
 function requestPass() {
-  if (!state.match || state.gameOver || placementPending || drag || isAiTurn()) return;
+  if (!state.match || isTrayEmpty() || state.gameOver || placementPending || drag || isAiTurn()) return;
   const canStillPlace = state.tray.some(item => !item.used
     && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
   if (!canStillPlace) {
@@ -822,6 +857,14 @@ function updateFullscreenButton() {
 }
 
 elements.undoButton.addEventListener("click", undo);
+elements.continueButton.addEventListener("click", continueTray);
+for (const [button, steps] of [[elements.trayPreviousButton, -1], [elements.trayNextButton, 1]]) {
+  button.addEventListener("click", () => {
+    if (placementPending || drag) return;
+    shiftTray(steps);
+    applyPreferences();
+  });
+}
 elements.passButton.addEventListener("click", requestPass);
 elements.resetButton.addEventListener("click", openResetModal);
 elements.settingsButton.addEventListener("click", openSettings);
@@ -866,7 +909,7 @@ initSettings({
     resetSavedGames();
     restartForSettingsChange();
   },
-  onAccessibilityChange: applyPreferences,
+  onAccessibilityChange: applyAccessibilityPreferences,
   onChangelogClose: scheduleAiMove,
   onResetBest: () => {
     resetAllScores();
@@ -907,10 +950,7 @@ function restoreCurrentGame(showWelcome) {
       else hideModal();
     } else {
       hideModal();
-      if (state.tray.every(item => item.used)) {
-        if (state.match) endMatchTurn(state.match);
-        deliverTray();
-      }
+      if (!shouldWaitForContinue()) continueTray();
       if (state.timerStarted) startTimer();
     }
   } else {

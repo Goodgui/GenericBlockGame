@@ -25,11 +25,12 @@ async function loadFrame() {
     frame.src = document.querySelector("#version").value + `?check=${Date.now()}`;
   });
   await until(() => field("board")?.children.length);
+  if (field("changelogModal").classList.contains("is-open")) click("changelogButton");
   if (field("modal").classList.contains("is-open") && field("modalButton").textContent === "Start game") click("modalButton");
 }
 async function placeSingle(q, r) {
   const win = frame.contentWindow;
-  const slot = doc().querySelector(".tray-slot");
+  const slot = doc().querySelector(".tray-slot:not(.used)");
   const piece = slot.querySelector(".piece").getBoundingClientRect();
   const cell = doc().querySelector(`.cell[data-q="${q}"][data-r="${r}"]`).getBoundingClientRect();
   const send = (target, type, x, y) => target.dispatchEvent(new win.PointerEvent(type, {
@@ -151,6 +152,107 @@ runButton.addEventListener("click", async () => {
       click("settingsCloseButton");
       await loadFrame();
       assert(doc().body.classList.contains("square-mode") && doc().querySelectorAll(".cell.filled").length === 8, "Square reload failed");
+    });
+    await check("large trays show three pieces and shift one piece at a time on both boards", async () => {
+      for (const mode of ["hex", "square"]) {
+        api.setBoardMode(mode);
+        const preferences = api.defaultPreferences();
+        Object.assign(preferences, { traySize: 8, slowModeEnabled: true,
+          dragInitialOffset: 0, dragMovingOffset: 0, dragHorizontalOffset: 0 });
+        api.savePreferences(preferences);
+        api.saveGame({ board: api.createEmptyBoard(), score: 0, streak: 0, scoringVersion: 2,
+          tray: Array.from({ length: 8 }, (_, index) => ({ uid: `${mode}-${index}`, shapeId: "single", rotation: 0, used: false })),
+          history: [], match: null, gameOver: false, timedMode: false });
+        await loadFrame();
+        const slots = [...field("tray").children];
+        const view = field("tray").parentElement.getBoundingClientRect();
+        const first = slots[0].getBoundingClientRect();
+        assert(field("trayPreviousButton").hidden && !field("trayNextButton").hidden, "Only the right arrow should show at the start");
+        const arrow = field("trayNextButton");
+        assert(!arrow.textContent.trim() && arrow.querySelector("svg path"), "Tray arrows must use lines instead of text");
+        assert(frame.contentWindow.getComputedStyle(arrow).borderTopWidth === "0px", "Tray arrow has a button border");
+        assert(frame.contentWindow.getComputedStyle(arrow.querySelector("path")).strokeWidth
+          === frame.contentWindow.getComputedStyle(doc().querySelector(".chunk-outlines path")).strokeWidth, "Arrow and section lines must use the same width");
+        assert(Math.abs(first.width - (view.width - 6) / 3) < 1, "Tray squeezed more than three pieces into view");
+        assert(Math.abs(slots[3].getBoundingClientRect().top - first.top) < 1, "Tray wrapped onto another row");
+        assert(slots[3].getBoundingClientRect().left >= view.right - 1, "Fourth piece must start outside the view");
+        click("trayNextButton");
+        await until(() => Math.abs(slots[1].getBoundingClientRect().left - first.left) < 1);
+        assert(Math.abs(slots[1].getBoundingClientRect().left - first.left) < 1, "Right arrow did not shift one piece");
+        assert(!field("trayPreviousButton").hidden && !field("trayNextButton").hidden, "Both arrows should show between the ends");
+        click("trayPreviousButton");
+        await until(() => Math.abs(slots[0].getBoundingClientRect().left - first.left) < 1);
+        assert(Math.abs(slots[0].getBoundingClientRect().left - first.left) < 1, "Left arrow did not shift one piece");
+        for (let index = 0; index < 8; index++) click("trayNextButton");
+        await until(() => Math.abs(slots[7].getBoundingClientRect().right - view.right) < 1);
+        assert(field("trayNextButton").hidden && !field("trayPreviousButton").hidden && Math.abs(slots[7].getBoundingClientRect().right - view.right) < 1,
+          "Tray must stop with the last piece in view");
+      }
+    });
+    await check("pieces slide together to three, then keep their positions", async () => {
+      const state = api.loadGame();
+      state.tray = state.tray.slice(0, 4);
+      api.saveGame(state);
+      await loadFrame();
+      const uid = state.tray[1].uid;
+      const center = piece => { const box = piece.getBoundingClientRect(); return box.left + box.width / 2; };
+      const secondPiece = () => doc().querySelector(`[data-uid="${uid}"] .piece`);
+      const before = center(secondPiece());
+      await placeSingle(4, 4);
+      assert(field("tray").children.length === 3, "The larger tray did not close its gap");
+      if (!frame.contentWindow.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        assert(secondPiece().getAnimations().some(motion => motion.playState === "running"), "Remaining pieces did not animate");
+        assert(Math.abs(center(secondPiece()) - before) < 8, "The remaining piece jumped before its slide");
+      }
+      await until(() => !secondPiece().getAnimations().some(motion => motion.playState === "running"));
+      assert(Math.abs(center(secondPiece()) - before) > 20, "The tray kept the old gap");
+      const positions = new Map([...field("tray").children].map(slot => [slot.dataset.uid, center(slot.querySelector(".piece"))]));
+      await placeSingle(5, 4);
+      assert(field("tray").children.length === 2, "Placed piece stayed in the tray");
+      for (const slot of field("tray").children) {
+        assert(Math.abs(center(slot.querySelector(".piece")) - positions.get(slot.dataset.uid)) < 1, "The final three positions moved");
+      }
+      await placeSingle(6, 4);
+      const lastSlot = field("tray").firstElementChild;
+      assert(field("tray").children.length === 1
+        && Math.abs(center(lastSlot.querySelector(".piece")) - positions.get(lastSlot.dataset.uid)) < 1,
+        "The final piece moved from its fixed slot");
+      click("undoButton");
+      assert([...field("tray").children].map(slot => slot.dataset.uid).join() === state.tray.slice(2).map(item => item.uid).join(),
+        "Undo did not restore the order of the remaining pieces");
+      await loadFrame();
+      for (const slot of field("tray").children) {
+        assert(Math.abs(center(slot.querySelector(".piece")) - positions.get(slot.dataset.uid)) < 1, "Reload moved a fixed tray slot");
+      }
+    });
+    await check("slow mode keeps the last move through reload and Undo until Continue", async () => {
+      const state = api.loadGame();
+      state.tray = [{ ...state.tray[0], used: false }];
+      state.board = api.createEmptyBoard();
+      state.score = state.streak = 0;
+      state.history = [];
+      api.saveGame(state);
+      await loadFrame();
+      await placeSingle(4, 4);
+      await until(() => !field("continueButton").hidden && !field("continueButton").disabled);
+      assert(!field("undoButton").disabled && api.loadGame().history.length === 1, "Last move lost Undo");
+      await loadFrame();
+      assert(!field("continueButton").hidden && !field("undoButton").disabled, "Reload advanced the tray");
+      click("undoButton");
+      assert(field("continueButton").hidden && !doc().querySelector(".cell.filled"), "Undo did not restore the last piece");
+      await placeSingle(4, 4);
+      await until(() => !field("continueButton").disabled);
+      click("continueButton");
+      assert(field("continueButton").hidden && api.loadGame().history.length === 0
+        && api.loadGame().tray.every(item => !item.used), "Continue did not start a fresh tray");
+      const uid = api.loadGame().tray[0].uid;
+      click("settingsButton");
+      field("slowModeSetting").checked = false;
+      field("slowModeSetting").dispatchEvent(new frame.contentWindow.Event("change", { bubbles: true }));
+      assert(api.loadGame().tray[0].uid === uid, "Slow mode toggle restarted the game");
+      tab("hex");
+      assert(!field("slowModeSetting").checked, "Slow mode must apply to both boards");
+      tab("square"); click("settingsCloseButton");
     });
     await check("Reset top score clears both boards", async () => {
       for (const mode of ["hex", "square"]) api.saveBestScore(99, mode);

@@ -27,7 +27,20 @@ function setup(mode, side) {
       }
     }
     replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
+    insertBefore(node, before) {
+      node.remove();
+      node.parentElement = this;
+      const index = before ? this.children.indexOf(before) : this.children.length;
+      this.children.splice(index, 0, node);
+    }
+    remove() {
+      if (this.parentElement) this.parentElement.children = this.parentElement.children.filter(node => node !== this);
+      this.parentElement = null;
+    }
+    querySelector(selector) { return this.children.find(node => node.className === selector.slice(1)); }
+    getBoundingClientRect() { return { left: 0, top: 0, width: 22, height: 22 }; }
     setAttribute(name, value) { this.attributes[name] = value; }
+    addEventListener(type, action) { this[type] = action; }
   }
   const elements = new Map(), saved = new Map();
   const timers = new Map(), listeners = new Map();
@@ -69,7 +82,7 @@ function setup(mode, side) {
   const cells = new Map(elements.get("#board").children.filter(node => node.tag === "div")
     .map(cell => [`${cell.dataset.q},${cell.dataset.r}`, cell]));
   const borders = elements.get("#board").children.find(node => node.attributes.class === "chunk-outlines").children;
-  return { game, board, cells, borders, elements, advance, listeners,
+  return { game, board, state, cells, borders, elements, advance, listeners,
     emit: type => [...(listeners.get(type) || [])].forEach(action => action()),
     draw: () => game.renderGame(state, 0, "Best score", () => true, () => {}) };
 }
@@ -131,6 +144,88 @@ test("cancelling AI motion removes resize handling and never places the piece", 
   assert.equal(tray.classList.contains("dragging"), false);
   assert.equal(app.listeners.get("resize")?.size || 0, 0);
 });
+
+for (const mode of ["hex", "square"]) {
+  test(`${mode}: trays close gaps, hide arrows at each end, and restore pieces in order`, () => {
+    const app = setup(mode, mode === "hex" ? 5 : 9);
+    const tray = app.elements.get("#tray");
+    tray.clientWidth = 360;
+    const previous = app.elements.get("#trayPreviousButton");
+    const next = app.elements.get("#trayNextButton");
+    for (const count of [1, 2, 3, 4, 8]) {
+      app.state.tray = Array.from({ length: count }, (_, index) => ({ uid: `${count}-${index}`, shapeId: "single", used: false }));
+      app.draw();
+      assert.equal(Number(tray.dataset.offset), 0);
+      assert.equal(tray.children.length, count);
+      assert.equal(tray.style["--tray-columns"], 3);
+      assert.equal(previous.hidden, true);
+      assert.equal(next.hidden, count <= 3);
+      if (count <= 3) continue;
+      assert.equal(previous.disabled, true);
+      assert.equal(next.disabled, false);
+      app.game.shiftTray(1);
+      assert.equal(Number(tray.dataset.offset), 1);
+      assert.equal(tray.style.transform, "translateX(calc(-33.333333333333336% - 1px))");
+      assert.equal(previous.hidden, false);
+      const survivor = tray.children[2];
+      app.state.tray[1].used = true;
+      app.draw();
+      assert.equal(tray.children.length, count - 1, "Used pieces must leave no slots behind");
+      assert.equal(tray.children[1], survivor, "Remaining slots must stay intact for their slide");
+      assert.deepEqual(tray.children.map(slot => slot.dataset.uid), app.state.tray.filter(item => !item.used).map(item => item.uid));
+      assert.equal(Number(tray.dataset.offset), Math.min(1, count - 4));
+      app.game.shiftTray(99);
+      assert.equal(Number(tray.dataset.offset), count - 4);
+      assert.equal(next.disabled, true);
+      assert.equal(next.hidden, true);
+      app.game.shiftTray(-1);
+      assert.equal(Number(tray.dataset.offset), Math.max(0, count - 5));
+      app.game.shiftTray(-99);
+      assert.equal(Number(tray.dataset.offset), 0);
+      assert.equal(previous.disabled, true);
+      assert.equal(previous.hidden, true);
+      app.game.revealTrayItem(app.state.tray.at(-1).uid);
+      assert.equal(Number(tray.dataset.offset), count - 4, "AI pieces must be visible before they move");
+      app.state.tray[1].used = false;
+      app.state.restoredTrayItemUid = app.state.tray[1].uid;
+      app.draw();
+      assert.deepEqual(tray.children.map(slot => slot.dataset.uid), app.state.tray.map(item => item.uid), "Undo must restore the original order");
+      app.state.restoredTrayItemUid = app.state.tray[0].uid;
+      app.draw();
+      assert.equal(Number(tray.dataset.offset), 0, "Undo must reveal the restored piece");
+      for (const item of app.state.tray) item.used = true;
+      app.draw();
+      assert.equal(tray.children.length, 0);
+      assert.equal(previous.hidden, true);
+      assert.equal(next.hidden, true);
+    }
+    app.state.tray = [{ uid: "fresh-tray", shapeId: "single", used: false }];
+    app.draw();
+    assert.equal(Number(tray.dataset.offset), 0);
+    assert.equal(next.hidden, true);
+  });
+
+  test(`${mode}: the final three pieces keep their slots through placements and Undo`, () => {
+    const app = setup(mode, mode === "hex" ? 5 : 9);
+    const tray = app.elements.get("#tray");
+    app.state.tray = Array.from({ length: 4 }, (_, index) => ({ uid: `fixed-${index}`, shapeId: "single", used: false }));
+    app.draw();
+    app.state.tray[0].used = true;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridColumn), ["1", "2", "3"]);
+    app.state.tray[2].used = true;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridColumn), ["1", "3"]);
+    app.state.tray[1].used = true;
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridColumn), ["3"]);
+    assert.equal(tray.style["--tray-columns"], 3);
+    app.state.tray[2].used = false;
+    app.state.restoredTrayItemUid = "fixed-2";
+    app.draw();
+    assert.deepEqual(tray.children.map(slot => slot.style.gridColumn), ["2", "3"]);
+  });
+}
 
 test("clear borders cover each section edge once on every grid", () => {
   for (const [mode, side] of layouts) {

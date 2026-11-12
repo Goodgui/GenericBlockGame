@@ -28,7 +28,7 @@ test("AI completes a mixed color line and uses the current player's streak", () 
   for (let q = -4; q <= 4; q += 1) if (q !== 0) match.board.cells[`${q},0`] = q % 2 ? 1 : 2;
   match.match.streaks[1] = 2;
   const before = JSON.stringify(match);
-  const move = game.chooseAiMove(match);
+  const move = game.chooseAiMove(match, "hard");
   assert.deepEqual({ ...move }, { uid: "piece-0", q: 0, r: 0 });
   assert.equal(JSON.stringify(match), before, "Search changed the live game");
   game.fillShape(match.board, game.shapeById("single"), move.q, move.r, 2);
@@ -41,7 +41,7 @@ test("AI searches ahead to clear a two-cell gap", () => {
   const match = state(["single", "single"]);
   for (let q = -4; q <= 4; q += 1) if (q !== 0 && q !== 1) match.board.cells[`${q},0`] = 1;
   for (let turn = 0; turn < 2; turn += 1) {
-    const move = game.chooseAiMove(match);
+    const move = game.chooseAiMove(match, "hard");
     assert.equal(move.r, 0);
     assert.ok([0, 1].includes(move.q));
     const item = match.tray.find(item => item.uid === move.uid);
@@ -54,12 +54,12 @@ test("AI searches ahead to clear a two-cell gap", () => {
   assert.equal(match.match.scores[1], 9);
 });
 
-test("Hard keeps the existing default and handles unknown levels", () => {
-  const { game, state } = setup();
+test("Easy is the default and handles unknown levels", () => {
+  const { game, state } = setup(() => 0);
   const match = state(["single", "line2", "bend3"]);
-  const hard = { ...game.chooseAiMove(match, "hard") };
-  for (const difficulty of [undefined, "unknown", "constructor"]) {
-    assert.deepEqual({ ...game.chooseAiMove(match, difficulty) }, hard);
+  const easy = { ...game.chooseAiMove(match, "easy") };
+  for (const difficulty of [undefined, null, "unknown", "constructor"]) {
+    assert.deepEqual({ ...game.chooseAiMove(match, difficulty) }, easy);
   }
 });
 
@@ -127,9 +127,9 @@ test("Hard finds better clears than Medium on a tray that rewards planning ahead
   assert.ok(scores[0] < scores[1], `Expected a stronger plan on Hard: ${scores}`);
 });
 
-test("difficulty defaults to Hard, saves each level, and resets with settings", () => {
+test("difficulty defaults to Easy, saves each level, and resets with settings", () => {
   const { game, saved } = setup();
-  assert.equal(game.loadPreferences().aiDifficulty, "hard");
+  assert.equal(game.loadPreferences().aiDifficulty, "easy");
   for (const difficulty of ["easy", "medium", "hard"]) {
     const preferences = game.loadPreferences();
     preferences.aiDifficulty = difficulty;
@@ -138,15 +138,15 @@ test("difficulty defaults to Hard, saves each level, and resets with settings", 
   }
   for (const value of [null, "unknown", "constructor"]) {
     saved.set(game.CONFIG.settingsKey, JSON.stringify({ aiEnabled: true, aiDifficulty: value }));
-    assert.equal(game.loadPreferences().aiDifficulty, "hard");
+    assert.equal(game.loadPreferences().aiDifficulty, "easy");
   }
   const preferences = game.loadPreferences();
-  preferences.aiDifficulty = "easy";
+  preferences.aiDifficulty = "hard";
   game.savePreferences(preferences);
-  assert.equal(game.loadPreferences("square").aiDifficulty, "hard");
-  assert.equal(game.loadPreferences().aiDifficulty, "easy");
-  game.resetAllPreferences();
+  assert.equal(game.loadPreferences("square").aiDifficulty, "easy");
   assert.equal(game.loadPreferences().aiDifficulty, "hard");
+  game.resetAllPreferences();
+  assert.equal(game.loadPreferences().aiDifficulty, "easy");
 });
 
 test("AI passes only when blocked or when a second pass wins", () => {
@@ -158,7 +158,7 @@ test("AI passes only when blocked or when a second pass wins", () => {
   const lead = state();
   lead.match.consecutivePasses = 1;
   lead.match.scores = [7, 9];
-  assert.equal(game.chooseAiMove(lead), null);
+  assert.equal(game.chooseAiMove(lead, "hard"), null);
   lead.match.scores = [9, 7];
   assert.ok(game.chooseAiMove(lead), "Losing AI passed with a legal move");
   lead.match.scores = [9, 9];

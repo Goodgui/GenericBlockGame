@@ -23,13 +23,15 @@ async function reload() {
     frame.onload = resolve;
     frame.src = document.querySelector("#version").value + `?check=${Date.now()}`;
   });
+  if (field("changelogModal").classList.contains("is-open")) click("changelogButton");
 }
 async function load(options = {}) {
   api.setBoardMode("hex");
   const preferences = api.defaultPreferences();
   if (options.board) preferences.boardSide = api.getBoardSide(options.board);
   preferences.aiEnabled = true;
-  preferences.aiDifficulty = options.difficulty || "hard";
+  preferences.aiDifficulty = options.difficulty || "easy";
+  preferences.slowModeEnabled = Boolean(options.slow);
   preferences.traySize = options.traySize || 2;
   preferences.dragInitialOffset = preferences.dragMovingOffset = preferences.dragHorizontalOffset = 0;
   for (const shape of api.SHAPES) preferences.pieces[shape.id] = { enabled: shape.id === "single" };
@@ -49,7 +51,9 @@ async function load(options = {}) {
 }
 function sendPiece(index, q, r) {
   const win = frame.contentWindow;
-  const slot = doc().querySelectorAll(".tray-slot")[index];
+  const uid = saved().tray[index]?.uid;
+  const slot = doc().querySelector(`.tray-slot[data-uid="${uid}"]`);
+  if (!slot) return;
   const piece = slot.querySelector(".piece").getBoundingClientRect();
   const cell = doc().querySelector(`.cell[data-q="${q}"][data-r="${r}"]`).getBoundingClientRect();
   const send = (target, type, x, y) => target.dispatchEvent(new win.PointerEvent(type, {
@@ -89,10 +93,10 @@ runButton.addEventListener("click", async () => {
       assert(doc().documentElement.style.getPropertyValue("--piece-hue") === "212", "Your tray is not blue");
       assert(!field("passButton").disabled && field("timerDisplay").hidden, "Wrong match controls");
     });
-    await check("VS AI defaults to Hard and remembers each selected level", async () => {
+    await check("VS AI defaults to Easy and remembers each selected level", async () => {
       click("settingsButton");
       assert(!field("aiDifficultyRow").hidden, "Difficulty is hidden in VS AI");
-      assert(doc().querySelector('[data-difficulty="hard"]').getAttribute("aria-checked") === "true", "Hard is not the default");
+      assert(doc().querySelector('[data-difficulty="easy"]').getAttribute("aria-checked") === "true", "Easy is not the default");
       for (const difficulty of ["easy", "medium", "hard"]) {
         doc().querySelector(`[data-difficulty="${difficulty}"]`).click();
         assert(api.loadPreferences().aiDifficulty === difficulty, "Level did not save");
@@ -123,7 +127,7 @@ runButton.addEventListener("click", async () => {
       await load();
     });
     await check("Changing difficulty cancels a pending AI move and starts a fresh match", async () => {
-      await load({ match: { player: 1 } });
+      await load({ difficulty: "hard", match: { player: 1 } });
       click("settingsButton"); doc().querySelector('[data-difficulty="easy"]').click();
       click("settingsCloseButton"); await delay(650);
       assert(saved().match.player === 0 && !doc().querySelector(".cell.filled"), "Old AI moved after difficulty changed");
@@ -131,6 +135,7 @@ runButton.addEventListener("click", async () => {
       await load();
     });
     await check("Human moves and Undo still work in the current tray", async () => {
+      await load();
       sendPiece(0, 0, 0);
       await until(() => saved().match.placed === 1);
       assert(saved().board.cells["0,0"] === 1, "Human piece has the wrong owner");
@@ -139,6 +144,7 @@ runButton.addEventListener("click", async () => {
       assert(saved().board.cells["0,0"] === 0 && saved().match.placed === 0, "Undo failed");
     });
     await check("Passing starts the AI and locks human input", async () => {
+      await load();
       click("passButton"); click("modalButton");
       assert(saved().match.player === 1, "AI did not receive turn");
       assert(field("passButton").disabled && field("undoButton").disabled, "Human controls stayed enabled");
@@ -161,10 +167,20 @@ runButton.addEventListener("click", async () => {
       assert(Object.values(saved().board.cells).filter(value => value === 1).length === 2, "Human cells lost");
       assert(Object.values(saved().board.cells).filter(value => value === 2).length === 2, "AI did not act");
     });
+    await check("slow mode waits for you, then the AI ends its turn on its own", async () => {
+      await load({ slow: true, shapes: ["single"], traySize: 1 });
+      sendPiece(0, 0, 0);
+      await until(() => !field("continueButton").hidden && !field("continueButton").disabled);
+      assert(saved().match.player === 0 && !field("undoButton").disabled, "Your last move did not wait for Continue");
+      click("continueButton");
+      await waitForHumanTurn();
+      assert(field("continueButton").hidden && saved().tray.every(item => !item.used), "The AI waited for Continue");
+      assert(Object.values(saved().board.cells).some(value => value === 2), "The AI did not place its piece");
+    });
     await check("AI earns a clear from your Blue cells and shows its Red score", async () => {
       const board = api.createEmptyBoard();
       for (let q = -4; q <= 4; q += 1) if (q !== 0) board.cells[`${q},0`] = 1;
-      await load({ board, match: { player: 1 }, shapes: ["single"] });
+      await load({ board, difficulty: "hard", match: { player: 1 }, shapes: ["single"] });
       await waitForHumanTurn();
       assert(saved().match.scores[0] === 0 && saved().match.scores[1] === 9, "AI clear scored for the wrong player");
       assert(field("redScore").textContent === "9" && field("blueScore").textContent === "0", "Scores have the wrong colors");
@@ -209,7 +225,7 @@ runButton.addEventListener("click", async () => {
       assert(field("modalTitle").textContent === "AI wins", "Reload lost the result");
     });
     await check("AI can take a winning second pass with a playable tray", async () => {
-      await load({ match: { player: 1, scores: [7, 9], consecutivePasses: 1 } });
+      await load({ difficulty: "hard", match: { player: 1, scores: [7, 9], consecutivePasses: 1 } });
       await until(() => saved().gameOver);
       assert(field("modalTitle").textContent === "AI wins", "AI failed to take a winning pass");
       assert(!Object.values(saved().board.cells).some(Boolean), "AI placed before its winning pass");

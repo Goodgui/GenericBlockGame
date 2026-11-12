@@ -26,7 +26,8 @@ function positionValue(node, zones) {
 
 // Use only the current board and tray. Never change the live game or turn pieces.
 // A null move means pass, including a pass that secures an existing lead.
-function chooseAiMove(state, difficulty = "hard") {
+function chooseAiMove(state, difficulty = "easy") {
+  if (difficulty !== "easy" && !Object.hasOwn(SEARCH_LIMITS, difficulty)) difficulty = "easy";
   if (state.board.type !== "hex" || !state.match || state.match.player !== 1 || state.gameOver) return null;
   if (difficulty !== "easy" && state.match.consecutivePasses === 1
     && state.match.scores[1] > state.match.scores[0]) return null;
@@ -45,7 +46,7 @@ function chooseAiMove(state, difficulty = "hard") {
     }
     return moves[Math.floor(Math.random() * moves.length)] || null;
   }
-  const limits = Object.hasOwn(SEARCH_LIMITS, difficulty) ? SEARCH_LIMITS[difficulty] : SEARCH_LIMITS.hard;
+  const limits = SEARCH_LIMITS[difficulty];
   const { depth: searchDepth, width: searchWidth } = limits;
   const zones = boardZones(state.board);
   let choices = [{ board: state.board, remaining, streak: state.match.streaks[1], points: 0, placed: 0, first: null }];

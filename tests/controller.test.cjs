@@ -13,7 +13,7 @@ function setup(saved = new Map()) {
   function element() {
     const classes = new Set();
     return {
-      hidden: false, disabled: false, textContent: "", style: { setProperty() {} },
+      hidden: false, disabled: false, textContent: "", dataset: {}, style: { setProperty() {} },
       classList: {
         contains: name => classes.has(name),
         add: (...names) => names.forEach(name => classes.add(name)),
@@ -42,7 +42,7 @@ function setup(saved = new Map()) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
   const game = window.GenericBlockGame;
-  const elements = Object.fromEntries(["undoButton", "passButton", "board", "settingsPanel", "modal", "timerDisplay",
+  const elements = Object.fromEntries(["undoButton", "passButton", "continueButton", "trayPreviousButton", "trayNextButton", "board", "settingsPanel", "modal", "timerDisplay",
     "tray", "score", "bestScore", "bestScoreLabel", "modalButton", "modalUndoButton", "modalCancelButton",
     "resetButton", "settingsButton", "fullscreenButton", "dragLayer", "changelogModal"].map(name => [name, element()]));
   elements.modal.classList.add("is-open");
@@ -54,7 +54,7 @@ function setup(saved = new Map()) {
     elements, renderGame: state => displayed = state, buildBoard() {}, clearPreview: () => preview = null, animateClear() {},
     animateAiMove(item, shape, q, r, done) { done(); return () => {}; },
     renderPreview: drag => preview = { q: drag.originQ + 0, r: drag.originR + 0, valid: drag.valid },
-    makePiece: () => ({ childNodes: [] }),
+    makePiece: () => ({ childNodes: [] }), shiftTray() {}, revealTrayItem() {},
     hideModal: () => elements.modal.classList.remove("is-open"),
     showModal(title, text, button, options) { result = { title, ...options }; elements.modal.classList.add("is-open"); },
     initSettings: callbacks => settings = callbacks, openSettings() {},
@@ -77,14 +77,15 @@ function setup(saved = new Map()) {
     }
     throw new Error("Timer callbacks did not settle");
   }
-  function seed({ mode = "hex", timed = true, remaining = 30000, match = false, shapes = ["single", "single", "single"] } = {}) {
+  function seed({ mode = "hex", timed = true, remaining = 30000, match = false, ai = false, slow = false, shapes = ["single", "single", "single"] } = {}) {
     game.setBoardMode(mode);
     const preferences = game.defaultPreferences();
-    Object.assign(preferences, { timeTrialEnabled: timed, twoPlayerEnabled: match });
+    Object.assign(preferences, { timeTrialEnabled: timed, twoPlayerEnabled: match, aiEnabled: ai, slowModeEnabled: slow });
     game.savePreferences(preferences);
     const state = { board: game.createEmptyBoard(), score: 0, streak: 0, scoringVersion: 2, history: [], gameOver: false,
       tray: shapes.map((shapeId, index) => ({ uid: `piece-${index}`, shapeId, rotation: 0, used: false })),
-      match: match ? game.createMatch() : null, timedMode: timed, timerStarted: timed, timeRemainingMs: timed ? remaining : null };
+      match: match || ai ? game.createMatch() : null, aiOpponent: ai,
+      timedMode: timed, timerStarted: timed, timeRemainingMs: timed ? remaining : null };
     return state;
   }
   function place(index, q, r) {
@@ -231,6 +232,121 @@ test("the final placement saves the next player and tray exactly once before eff
   assert.equal(restored.state().match.player, 1);
   assert.equal(app.state().match.player, 1);
   assert.deepEqual(JSON.parse(JSON.stringify(restored.state().tray)), JSON.parse(JSON.stringify(app.state().tray)));
+});
+
+for (const options of [
+  { mode: "hex", timed: false },
+  { mode: "square", timed: false },
+  { mode: "hex", timed: true },
+  { mode: "hex", timed: false, match: true },
+  { mode: "hex", timed: false, ai: true },
+]) {
+  const name = options.ai ? "VS AI" : options.match ? "2 Player" : `${options.mode} ${options.timed ? "Time Trial" : "solo"}`;
+  test(`${name}: slow mode keeps the last move for Undo until Continue`, () => {
+    const app = setup();
+    const state = app.seed({ ...options, slow: true, shapes: ["single"] });
+    if (state.match) state.match.consecutivePasses = 1;
+    app.game.saveGame(state); app.boot();
+    app.place(0, 0, 0);
+    assert.equal(app.elements.continueButton.disabled, true, "Wait for the placement effect");
+    app.elements.continueButton.click();
+    assert.equal(app.state().history.length, 1);
+    app.advance(360);
+    assert.equal(app.elements.continueButton.hidden, false);
+    assert.equal(app.elements.continueButton.disabled, false);
+    assert.equal(app.elements.undoButton.disabled, false);
+    assert.equal(app.state().tray[0].used, true);
+    if (state.match) {
+      assert.equal(app.state().match.player, 0);
+      assert.equal(app.elements.passButton.hidden, true);
+      app.elements.passButton.click();
+      assert.equal(app.state().match.player, 0, "A completed tray cannot count as a pass");
+    }
+    app.elements.undoButton.click();
+    assert.equal(app.state().board.cells["0,0"], 0);
+    assert.equal(app.state().tray[0].used, false);
+    assert.equal(app.elements.continueButton.hidden, true);
+    app.place(0, 0, 0); app.advance(360);
+    const restored = setup(new Map(app.saved)); restored.boot();
+    assert.equal(restored.state().tray[0].used, true, "Reload must keep the completed tray");
+    assert.equal(restored.state().history.length, 1);
+    assert.equal(restored.elements.continueButton.hidden, false);
+    restored.elements.continueButton.click();
+    assert.ok(restored.state().tray.every(item => !item.used));
+    assert.equal(restored.state().history.length, 0);
+    assert.equal(restored.elements.continueButton.hidden, true);
+    if (state.match) {
+      assert.equal(restored.state().match.player, 1);
+      assert.equal(restored.state().match.consecutivePasses, 0);
+    }
+  });
+}
+
+test("slow mode advances after the AI tray and still waits after the human tray", () => {
+  const app = setup();
+  const state = app.seed({ timed: false, ai: true, slow: true, shapes: ["single"] });
+  state.match.player = 1;
+  app.game.saveGame(state); app.boot(); app.advance(2000);
+  assert.equal(app.state().match.player, 0);
+  assert.ok(app.state().tray.every(item => !item.used));
+  assert.equal(app.state().match.consecutivePasses, 0, "An empty AI tray cannot trigger an automatic pass");
+  assert.equal(app.elements.continueButton.hidden, true);
+  assert.equal(app.state().history.length, 0);
+  const restored = setup(new Map(app.saved)); restored.boot(); restored.advance(2000);
+  assert.equal(restored.state().match.player, 0);
+  assert.ok(restored.state().tray.every(item => !item.used));
+  const origins = Object.keys(restored.state().board.cells).filter(key => !restored.state().board.cells[key]);
+  for (let index = 0; index < restored.state().tray.length; index++) {
+    const [q, r] = origins[index].split(",").map(Number);
+    const item = restored.state().tray[index];
+    item.shapeId = "single"; item.rotation = 0;
+    restored.place(index, q, r); restored.advance(360);
+  }
+  assert.equal(restored.state().match.player, 0);
+  assert.equal(restored.elements.continueButton.hidden, false);
+  assert.equal(restored.elements.undoButton.disabled, false);
+});
+
+test("an older AI save waiting on Continue advances once in slow mode", () => {
+  const app = setup();
+  const state = app.seed({ timed: false, ai: true, slow: true, shapes: ["single"] });
+  state.match.player = 1;
+  state.tray[0].used = true;
+  app.game.saveGame(state); app.boot();
+  assert.equal(app.state().match.player, 0);
+  assert.ok(app.state().tray.every(item => !item.used));
+  assert.equal(app.elements.continueButton.hidden, true);
+  const restored = setup(new Map(app.saved)); restored.boot(); restored.advance(2000);
+  assert.equal(restored.state().match.player, 0);
+});
+
+for (const duringEffect of [false, true]) {
+  test(`turning slow mode off ${duringEffect ? "during effects" : "while waiting"} advances once`, () => {
+    const app = setup();
+    app.game.saveGame(app.seed({ timed: false, match: true, slow: true, shapes: ["single"] }));
+    app.boot(); app.place(0, 0, 0);
+    if (!duringEffect) app.advance(360);
+    app.game.savePreferences({ ...app.game.loadPreferences(), slowModeEnabled: false });
+    app.settings().onAccessibilityChange(); app.advance(360);
+    assert.equal(app.state().match.player, 1);
+    assert.equal(app.state().history.length, 0);
+    assert.ok(app.state().tray.every(item => !item.used));
+    const uids = app.state().tray.map(item => item.uid).join();
+    app.elements.continueButton.click();
+    assert.equal(app.state().tray.map(item => item.uid).join(), uids);
+    assert.equal(app.state().match.player, 1);
+  });
+}
+
+test("Time Trial still expires while slow mode waits for Continue", () => {
+  const app = setup();
+  app.game.saveGame(app.seed({ remaining: 1000, slow: true, shapes: ["single"] }));
+  app.boot(); app.place(0, 0, 0); app.advance(1250);
+  assert.equal(app.state().gameOver, true);
+  assert.equal(app.elements.continueButton.disabled, true);
+  assert.equal(app.elements.undoButton.disabled, true);
+  app.elements.continueButton.click();
+  assert.equal(app.state().tray[0].used, true);
 });
 
 test("a move still displays its filled cells and current player during the clear", () => {

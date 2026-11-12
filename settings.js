@@ -20,6 +20,7 @@ const {
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
+const slowModeSetting = document.querySelector("#slowModeSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
 const aiDifficultySetting = document.querySelector("#aiDifficultySetting");
 const aiDifficultyRow = document.querySelector("#aiDifficultyRow");
@@ -257,6 +258,7 @@ function renderSettings() {
     if (selected) boardSettingsContent.setAttribute("aria-labelledby", button.id);
   });
   undoSetting.checked = preferences.undoEnabled;
+  slowModeSetting.checked = preferences.slowModeEnabled;
   updateGameModeControl();
   timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
   timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
@@ -416,6 +418,10 @@ function initSettings(options) {
   undoSetting.addEventListener("change", () => {
     preferences.undoEnabled = undoSetting.checked;
     saveAndNotify();
+  });
+  slowModeSetting.addEventListener("change", () => {
+    preferences.slowModeEnabled = slowModeSetting.checked;
+    saveAccessibilityAndNotify();
   });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");

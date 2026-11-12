@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
   <title>GenericBlockGame</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8dGl0bGU+U2V2ZW4gaGV4YWdvbnMgd2l0aCB0aHJlZSBibHVlIGNlbGxzIGF0IHRoZSBsb3dlciBsZWZ0PC90aXRsZT4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjODhhOGNlIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzUyNzQ5YyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxwb2x5Z29uIGlkPSJoZXgiIHBvaW50cz0iMCwtNDQgMzguMTA1LC0yMiAzOC4xMDUsMjIgMCw0NCAtMzguMTA1LDIyIC0zOC4xMDUsLTIyIi8+CiAgPC9kZWZzPgogIDxnIGZpbGw9IiMyMzI3MmUiIHN0cm9rZT0iI2E1YjJjNCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDx1c2UgaHJlZj0iI2hleCIgeD0iODkuODk1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxNjYuMTA1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSI1MS43OSIgeT0iMTI4IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjEyOCIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjIwNC4yMSIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iMTk0IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjE2Ni4xMDUiIHk9IjE5NCIgZmlsbD0idXJsKCNibHVlKSIvPgogIDwvZz4KPC9zdmc+Cg==">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4NCiAgPHRpdGxlPlNldmVuIGhleGFnb25zIHdpdGggdGhyZWUgYmx1ZSBjZWxscyBhdCB0aGUgbG93ZXIgbGVmdDwvdGl0bGU+DQogIDxkZWZzPg0KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPg0KICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iIzg4YThjZSIvPg0KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNTI3NDljIi8+DQogICAgPC9saW5lYXJHcmFkaWVudD4NCiAgICA8cG9seWdvbiBpZD0iaGV4IiBwb2ludHM9IjAsLTQ0IDM4LjEwNSwtMjIgMzguMTA1LDIyIDAsNDQgLTM4LjEwNSwyMiAtMzguMTA1LC0yMiIvPg0KICA8L2RlZnM+DQogIDxnIGZpbGw9IiMyMzI3MmUiIHN0cm9rZT0iI2E1YjJjNCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iNjIiLz4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjE2Ni4xMDUiIHk9IjYyIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSI1MS43OSIgeT0iMTI4IiBmaWxsPSJ1cmwoI2JsdWUpIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxMjgiIHk9IjEyOCIvPg0KICAgIDx1c2UgaHJlZj0iI2hleCIgeD0iMjA0LjIxIiB5PSIxMjgiLz4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iMTk0IiBmaWxsPSJ1cmwoI2JsdWUpIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxNjYuMTA1IiB5PSIxOTQiIGZpbGw9InVybCgjYmx1ZSkiLz4NCiAgPC9nPg0KPC9zdmc+DQo=">
   <style>
 :root {
   color-scheme: dark;
@@ -16,6 +16,7 @@
   --grid-heavy: #747d8b;
   --section-edge-light: #5d646f;
   --section-edge-dark: #363e47;
+  --section-edge-width: 3px;
   --text: #f0f2f5;
   --muted: #a1a7b0;
   --accent: #6688ad;
@@ -221,7 +222,7 @@ button { font: inherit; }
 .board-frame .frame-rim { fill: none; stroke: var(--board-rim); stroke-width: 20px; }
 .board-frame .frame-grid { fill: var(--grid); stroke: none; }
 .chunk-outlines { z-index: 1; }
-.chunk-outlines path { fill: none; stroke: var(--section-edge-light); stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.chunk-outlines path { fill: none; stroke: var(--section-edge-light); stroke-width: var(--section-edge-width); vector-effect: non-scaling-stroke; stroke-linecap: round; }
 .chunk-outlines path[data-filled="true"] { stroke: var(--section-edge-dark); }
 .chunk-outlines path[data-filled="true"],
 .chunk-outlines path.clear-fade[data-filled="false"] { transition: stroke 2s ease; }
@@ -287,14 +288,59 @@ button { font: inherit; }
   padding: 0 18px;
 }
 
-.tray {
+.tray-carousel {
+  position: relative;
   width: min(100%, 650px);
+  min-width: 0;
+}
+
+.tray-viewport {
+  overflow: hidden;
+}
+
+.tray {
+  width: 100%;
   min-height: 135px;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - (var(--tray-columns, 3) - 1) * 3px) / var(--tray-columns, 3));
   align-items: center;
   gap: 3px;
+  transition: transform .22s ease-out;
 }
+
+.tray.tray-still { transition: none; }
+
+.tray-arrow {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  width: 28px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.tray-arrow svg {
+  display: block;
+  width: 24px;
+  height: 32px;
+  margin: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--section-edge-width);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#trayPreviousButton { left: -14px; }
+#trayNextButton { right: -14px; }
+.tray-arrow:disabled { opacity: .28; cursor: default; }
+.tray-arrow:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
 
 .tray-slot {
   position: relative;
@@ -305,9 +351,6 @@ button { font: inherit; }
   touch-action: none;
   cursor: grab;
 }
-
-.tray.dense-tray { min-height: 190px; }
-.tray.dense-tray .tray-slot { height: 94px; min-height: 94px; }
 
 .tray.new-tray .tray-slot { animation: tray-arrive .24s ease-out both; }
 .tray.new-tray .tray-slot:nth-child(2) { animation-delay: .045s; }
@@ -337,7 +380,6 @@ button { font: inherit; }
 }
 
 .tray-slot.dragging { opacity: 0; cursor: grabbing; }
-.tray-slot.used { pointer-events: none; }
 .tray-slot.disabled { opacity: .24; filter: grayscale(1); cursor: not-allowed; }
 
 .piece {
@@ -957,12 +999,10 @@ input[type="number"]::-webkit-outer-spin-button {
   .tray-section { grid-column: 2; grid-row: 3; min-height: 0; padding: 0 14px; gap: 6px; }
   .tray { height: auto; min-height: 84px; }
   .tray-slot { min-height: 84px; height: 84px; }
-  .tray.dense-tray { min-height: 0; }
-  .tray.dense-tray .tray-slot { min-height: 68px; height: 68px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
 </style>
@@ -1013,12 +1053,23 @@ input[type="number"]::-webkit-outer-spin-button {
     </section>
 
     <section class="tray-section" aria-label="Piece tray">
-      <div id="tray" class="tray"></div>
+      <div class="tray-carousel">
+        <button id="trayPreviousButton" class="tray-arrow" type="button" aria-label="Shift tray left one piece" aria-controls="tray" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 32"><path d="M17 5 6 16 17 27"></path></svg>
+        </button>
+        <div class="tray-viewport">
+          <div id="tray" class="tray"></div>
+        </div>
+        <button id="trayNextButton" class="tray-arrow" type="button" aria-label="Shift tray right one piece" aria-controls="tray" hidden>
+          <svg aria-hidden="true" viewBox="0 0 24 32"><path d="M7 5 18 16 7 27"></path></svg>
+        </button>
+      </div>
       <div class="tray-actions">
         <button id="undoButton" class="undo-button" type="button" disabled>
           <span aria-hidden="true">↶</span> Undo
         </button>
         <button id="passButton" class="undo-button pass-button" type="button" hidden>Pass</button>
+        <button id="continueButton" class="undo-button" type="button" hidden>Continue</button>
       </div>
     </section>
   </main>
@@ -1135,6 +1186,11 @@ input[type="number"]::-webkit-outer-spin-button {
         <section class="settings-section">
           <h3>Accessibility</h3>
           <p>Applies to Hex and Square.</p>
+          <label class="setting-toggle">
+            <span>Slow mode</span>
+            <input id="slowModeSetting" type="checkbox" aria-describedby="slowModeHint">
+          </label>
+          <p id="slowModeHint">Wait for Continue after the last piece so you can still undo.</p>
           <div class="drag-settings accessibility-settings">
             <label>
               <span>Pickup offset</span>
@@ -1361,7 +1417,7 @@ function setBoardMode(mode) {
 }
 
 function defaultGlobalPreferences() {
-  return { dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
+  return { slowModeEnabled: false, dragInitialOffset: 100, dragMovingOffset: 180, dragHorizontalOffset: 170, pieceHue: 212 };
 }
 
 function defaultModePreferences(mode = getBoardMode()) {
@@ -1377,7 +1433,7 @@ function defaultModePreferences(mode = getBoardMode()) {
     timeTrialEnabled: false,
     twoPlayerEnabled: false,
     aiEnabled: false,
-    aiDifficulty: "hard",
+    aiDifficulty: "easy",
     timeTrialSeconds: 180,
   };
 }
@@ -1465,7 +1521,7 @@ function savePreferences(preferences, mode = getBoardMode()) {
 }
 
 function normalizeGameMode(preferences, mode) {
-  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "hard";
+  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "easy";
   if (mode === "square") {
     preferences.twoPlayerEnabled = false;
     preferences.aiEnabled = false;
@@ -1899,7 +1955,8 @@ function positionValue(node, zones) {
 
 // Use only the current board and tray. Never change the live game or turn pieces.
 // A null move means pass, including a pass that secures an existing lead.
-function chooseAiMove(state, difficulty = "hard") {
+function chooseAiMove(state, difficulty = "easy") {
+  if (difficulty !== "easy" && !Object.hasOwn(SEARCH_LIMITS, difficulty)) difficulty = "easy";
   if (state.board.type !== "hex" || !state.match || state.match.player !== 1 || state.gameOver) return null;
   if (difficulty !== "easy" && state.match.consecutivePasses === 1
     && state.match.scores[1] > state.match.scores[0]) return null;
@@ -1918,7 +1975,7 @@ function chooseAiMove(state, difficulty = "hard") {
     }
     return moves[Math.floor(Math.random() * moves.length)] || null;
   }
-  const limits = Object.hasOwn(SEARCH_LIMITS, difficulty) ? SEARCH_LIMITS[difficulty] : SEARCH_LIMITS.hard;
+  const limits = SEARCH_LIMITS[difficulty];
   const { depth: searchDepth, width: searchWidth } = limits;
   const zones = boardZones(state.board);
   let choices = [{ board: state.board, remaining, streak: state.match.streaks[1], points: 0, placed: 0, first: null }];
@@ -2122,6 +2179,11 @@ const {
 } = window.GenericBlockGame;
 const boardCells = new Map();
 const sectionEdges = [];
+let trayUids = [];
+let trayBatchUids = [];
+let trayOffset = 0;
+const trayMotions = new Map();
+const trayFixedColumns = new Map();
 const HEX_DIRECTIONS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
 const SQUARE_DIRECTIONS = [[0,-1],[1,0],[0,1],[-1,0]];
 
@@ -2129,12 +2191,15 @@ const SQUARE_DIRECTIONS = [[0,-1],[1,0],[0,1],[-1,0]];
 const elements = {
   board: document.querySelector("#board"),
   tray: document.querySelector("#tray"),
+  trayPreviousButton: document.querySelector("#trayPreviousButton"),
+  trayNextButton: document.querySelector("#trayNextButton"),
   score: document.querySelector("#score"),
   timerDisplay: document.querySelector("#timerDisplay"),
   bestScore: document.querySelector("#bestScore"),
   bestScoreLabel: document.querySelector("#bestScoreLabel"),
   undoButton: document.querySelector("#undoButton"),
   passButton: document.querySelector("#passButton"),
+  continueButton: document.querySelector("#continueButton"),
   soloScore: document.querySelector("#soloScore"),
   bestScorePanel: document.querySelector("#bestScorePanel"),
   matchScoreboard: document.querySelector("#matchScoreboard"),
@@ -2428,6 +2493,111 @@ function makePiece(shape, cellSize) {
   return piece;
 }
 
+function shiftTray(steps, animate = true) {
+  const columns = 3;
+  const limit = Math.max(0, trayUids.length - columns);
+  trayOffset = Math.max(0, Math.min(limit, trayOffset + steps));
+  if (!animate) elements.tray.classList.add("tray-still");
+  elements.tray.dataset.offset = trayOffset;
+  elements.tray.dataset.limit = limit;
+  elements.tray.style.transform = `translateX(calc(${-trayOffset * 100 / columns}% - ${trayOffset * 3 / columns}px))`;
+  elements.trayPreviousButton.hidden = trayOffset === 0;
+  elements.trayNextButton.hidden = trayOffset === limit;
+  elements.trayPreviousButton.disabled = trayOffset === 0;
+  elements.trayNextButton.disabled = trayOffset === limit;
+  if (!animate) {
+    void elements.tray.offsetWidth;
+    elements.tray.classList.remove("tray-still");
+  }
+}
+
+function revealTrayItem(uid, animate = true) {
+  const index = trayUids.indexOf(uid);
+  if (index < 0) return;
+  if (index < trayOffset) shiftTray(index - trayOffset, animate);
+  else if (index >= trayOffset + 3) shiftTray(index - trayOffset - 2, animate);
+}
+
+function renderTray(state, aiTurn, isShapePlaceable, onPointerDown) {
+  const batchUids = state.tray.map(item => item.uid);
+  const sameTray = batchUids.length === trayBatchUids.length
+    && batchUids.every((uid, index) => uid === trayBatchUids[index]);
+  const slots = new Map([...elements.tray.children].map(slot => [slot.dataset.uid, slot]));
+  const previousCenters = new Map();
+  if (sameTray) {
+    for (const [uid, slot] of slots) {
+      const piece = slot.querySelector(".piece");
+      if (!piece) continue;
+      const bounds = piece.getBoundingClientRect();
+      previousCenters.set(uid, bounds.left + bounds.width / 2);
+    }
+  }
+  for (const motion of trayMotions.values()) motion.cancel();
+  trayMotions.clear();
+  if (!sameTray) {
+    trayOffset = 0;
+    trayFixedColumns.clear();
+  }
+  trayBatchUids = batchUids;
+  const remaining = state.tray.filter(item => !item.used);
+  trayUids = remaining.map(item => item.uid);
+  const trayColumns = 3;
+  if (remaining.length > 3) trayFixedColumns.clear();
+  else if (!trayFixedColumns.size) {
+    // Keep the last three positions through placements, Undo, and reload.
+    let fixedRow = remaining;
+    for (const previous of state.history) {
+      const row = previous.tray?.filter(item => !item.used) || [];
+      if (row.length <= 3 && row.length > fixedRow.length) fixedRow = row;
+    }
+    const columns = fixedRow.length === 1 ? [2] : fixedRow.length === 2 ? [1, 3] : [1, 2, 3];
+    fixedRow.forEach((item, index) => trayFixedColumns.set(item.uid, columns[index]));
+  }
+  elements.tray.style.setProperty("--tray-columns", trayColumns);
+  for (const [uid, slot] of slots) {
+    if (!trayUids.includes(uid)) slot.remove();
+  }
+  remaining.forEach((item, index) => {
+    const slot = slots.get(item.uid) || document.createElement("div");
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    slot.className = "tray-slot";
+    slot.dataset.uid = item.uid;
+    const placeable = isShapePlaceable(shape);
+    slot.setAttribute("aria-disabled", String(aiTurn || !placeable));
+    slot.classList.toggle("disabled", !placeable);
+    slot.classList.toggle("restored-piece", item.uid === state.restoredTrayItemUid);
+    slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
+    slot.style.gridColumn = remaining.length <= 3 ? String(trayFixedColumns.get(item.uid)) : "auto";
+    const { width, height } = shapeDimensions(shape);
+    const slotWidth = (elements.tray.clientWidth || 300) / trayColumns;
+    const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
+    const shapeKey = `${item.shapeId}:${item.rotation || 0}`;
+    if (!slots.has(item.uid) || slot.dataset.shape !== shapeKey || Number(slot.dataset.cellSize) !== cellSize) {
+      slot.replaceChildren(makePiece(shape, cellSize));
+      slot.dataset.shape = shapeKey;
+      slot.dataset.cellSize = cellSize;
+    }
+    if (!slots.has(item.uid)) slot.addEventListener("pointerdown", onPointerDown);
+    if (elements.tray.children[index] !== slot) elements.tray.insertBefore(slot, elements.tray.children[index] || null);
+  });
+  // Place the row first, then slide each remaining piece from its old spot.
+  shiftTray(0, false);
+  revealTrayItem(state.restoredTrayItemUid, false);
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  for (const slot of elements.tray.children) {
+    const before = previousCenters.get(slot.dataset.uid);
+    const piece = slot.querySelector(".piece");
+    if (before === undefined || !piece?.animate) continue;
+    const bounds = piece.getBoundingClientRect();
+    const distance = before - bounds.left - bounds.width / 2;
+    if (Math.abs(distance) < 0.5) continue;
+    const motion = piece.animate([{ transform: `translateX(${distance}px)` }, { transform: "translateX(0)" }],
+      { duration: 220, easing: "ease-out" });
+    trayMotions.set(slot.dataset.uid, motion);
+    motion.onfinish = () => { if (trayMotions.get(slot.dataset.uid) === motion) trayMotions.delete(slot.dataset.uid); };
+  }
+}
+
 // Redraws scores, occupied cells, and the current tray.
 // The callback lets the controller attach pointer behavior to each tray slot.
 function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointerDown) {
@@ -2441,32 +2611,7 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
   });
   updateSectionOutlines(state.board);
 
-  elements.tray.replaceChildren();
-  const trayColumns = Math.min(state.tray.length, 4);
-  elements.tray.style.gridTemplateColumns = `repeat(${Math.max(1, trayColumns)}, 1fr)`;
-  elements.tray.classList.toggle("dense-tray", state.tray.length > 3);
-  for (const item of state.tray) {
-    const slot = document.createElement("div");
-    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
-    const placeable = !item.used && isShapePlaceable(shape);
-    slot.className = "tray-slot";
-    slot.dataset.uid = item.uid;
-    slot.setAttribute("aria-disabled", String(aiTurn || item.used || !placeable));
-    slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
-    if (item.uid === state.restoredTrayItemUid) slot.classList.add("restored-piece");
-
-    if (item.used) slot.classList.add("used");
-    if (!item.used && !placeable) slot.classList.add("disabled");
-    if (!item.used) {
-      const { width, height } = shapeDimensions(shape);
-      const slotWidth = (elements.tray.clientWidth || 300) / Math.max(1, trayColumns);
-      const cellSize = Math.min(CONFIG.trayCellSize, (slotWidth - 12) / width, 82 / height);
-      slot.append(makePiece(shape, cellSize));
-    }
-
-    slot.addEventListener("pointerdown", onPointerDown);
-    elements.tray.append(slot);
-  }
+  renderTray(state, aiTurn, isShapePlaceable, onPointerDown);
 
   elements.score.textContent = state.score.toLocaleString();
   elements.bestScore.textContent = bestScore.toLocaleString();
@@ -2487,8 +2632,10 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
     const player = state.match.player === 0 ? "Red" : "Blue";
     const noMoves = state.tray.some(item => !item.used)
       && !state.tray.some(item => !item.used && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
+    const trayFinished = state.tray.length > 0 && state.tray.every(item => item.used);
     elements.turnStatus.textContent = state.gameOver ? "Both players passed in a row."
-      : aiTurn ? "AI is choosing a move."
+      : trayFinished ? "Tray complete. Continue to the next turn."
+        : aiTurn ? "AI is choosing a move."
         : `${state.aiOpponent ? "Your turn (Blue)" : `${player}'s turn`}${noMoves ? ". No pieces fit. Pass to end your turn." : ""}`;
   }
   delete state.restoredTrayItemUid;
@@ -2633,6 +2780,8 @@ function hideModal() {
 }
 
 Object.assign(window.GenericBlockGame, {
+  shiftTray,
+  revealTrayItem,
   elements,
   buildBoard,
   buildHexGrid,
@@ -2672,6 +2821,7 @@ const {
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
+const slowModeSetting = document.querySelector("#slowModeSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
 const aiDifficultySetting = document.querySelector("#aiDifficultySetting");
 const aiDifficultyRow = document.querySelector("#aiDifficultyRow");
@@ -2909,6 +3059,7 @@ function renderSettings() {
     if (selected) boardSettingsContent.setAttribute("aria-labelledby", button.id);
   });
   undoSetting.checked = preferences.undoEnabled;
+  slowModeSetting.checked = preferences.slowModeEnabled;
   updateGameModeControl();
   timeTrialDurationSetting.value = String(preferences.timeTrialSeconds);
   timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
@@ -3069,6 +3220,10 @@ function initSettings(options) {
     preferences.undoEnabled = undoSetting.checked;
     saveAndNotify();
   });
+  slowModeSetting.addEventListener("change", () => {
+    preferences.slowModeEnabled = slowModeSetting.checked;
+    saveAccessibilityAndNotify();
+  });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");
     if (!button || button.hidden) return;
@@ -3206,6 +3361,8 @@ const {
   hideModal: hideModalView,
   makePiece,
   renderGame,
+  shiftTray,
+  revealTrayItem,
   renderPreview,
   showModal,
   initSettings,
@@ -3242,7 +3399,7 @@ function isAiTurn() {
 }
 
 function aiCanMove() {
-  return isAiTurn() && !placementPending && !document.hidden
+  return isAiTurn() && !isTrayEmpty() && !placementPending && !document.hidden
     && !elements.settingsPanel.classList.contains("is-open")
     && !elements.modal.classList.contains("is-open")
     && !elements.changelogModal.classList.contains("is-open");
@@ -3264,6 +3421,8 @@ function scheduleAiMove() {
     if (!canPlace(state.board, shape, move.q, move.r)) return;
     // Pending blocks other input and AI scheduling while the piece is moving.
     placementPending = true;
+    revealTrayItem(item.uid, false);
+    applyPreferences();
     stopAiFlight = animateAiMove(item, shape, move.q, move.r, () => {
       stopAiFlight = () => {};
       if (changeId !== boardChangeId) return;
@@ -3349,9 +3508,35 @@ function applyPreferences() {
   const view = placementView || state;
   document.documentElement.style.setProperty("--piece-hue",
     view.match ? (matchPlayerColor(view, view.match.player) === "red" ? 0 : 212) : preferences.pieceHue);
-  elements.passButton.hidden = !state.match;
+  const trayEmpty = isTrayEmpty();
+  elements.continueButton.hidden = !trayEmpty;
+  elements.continueButton.disabled = placementPending || Boolean(drag) || state.gameOver;
+  elements.passButton.hidden = !state.match || trayEmpty;
   elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver || isAiTurn();
   elements.undoButton.disabled = !canUndo();
+  const trayLocked = placementPending || Boolean(drag);
+  elements.trayPreviousButton.disabled = trayLocked || !(Number(elements.tray.dataset.offset) > 0);
+  elements.trayNextButton.disabled = trayLocked
+    || !(Number(elements.tray.dataset.offset) < Number(elements.tray.dataset.limit));
+}
+
+function isTrayEmpty() {
+  return state.tray.length > 0 && state.tray.every(item => item.used);
+}
+
+function shouldWaitForContinue() {
+  return loadPreferences().slowModeEnabled && !isAiTurn();
+}
+
+function continueTray() {
+  if (!isTrayEmpty() || placementPending || drag || state.gameOver || expireTimeTrialIfNeeded()) return;
+  if (state.match) endMatchTurn(state.match);
+  deliverTray();
+}
+
+function applyAccessibilityPreferences() {
+  applyPreferences();
+  if (!shouldWaitForContinue()) continueTray();
 }
 
 function canUndo() {
@@ -3491,13 +3676,14 @@ function placePiece(item, shape, originQ, originR) {
   const gained = state.match ? matchPoints : scored.points;
   state.score += gained;
   const trayFinished = state.tray.every(piece => piece.used);
+  const trayAdvanced = trayFinished && !shouldWaitForContinue();
   // Keep the old board and tray only for display. Saves contain the whole move.
   if (completed.zoneCount || trayFinished) {
     placementView = { ...state, board: cloneBoard(state.board),
       tray: state.tray.map(piece => ({ ...piece })), match: cloneMatch(state.match) };
   }
   clearCells(state.board, completed.cells);
-  if (trayFinished) {
+  if (trayAdvanced) {
     if (state.match) endMatchTurn(state.match);
     prepareTray();
   }
@@ -3508,16 +3694,20 @@ function placePiece(item, shape, originQ, originR) {
   if (completed.zoneCount) animateClear(completed.cells, gained);
   const delay = (completed.zoneCount ? 280 : 0) + (trayFinished ? 80 : 0);
   if (delay) {
-    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayFinished); }, delay);
+    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayAdvanced); }, delay);
   } else finishPlacement();
 }
 
-// Ending an effect never changes the saved board, tray, or player.
-function finishPlacement(trayFinished = false) {
+// Finish the effect, then apply any change to slow mode.
+function finishPlacement(trayAdvanced = false) {
   placementView = null;
   placementPending = false;
+  if (isTrayEmpty() && !state.gameOver && !shouldWaitForContinue()) {
+    continueTray();
+    return;
+  }
   render();
-  if (trayFinished) showNewTray();
+  if (trayAdvanced) showNewTray();
   if (state.gameOver) showCurrentResult();
 }
 
@@ -3602,7 +3792,7 @@ function showMatchResult() {
 }
 
 function passTurn(fromAi = false) {
-  if (!state.match || state.gameOver || placementPending || drag) return;
+  if (!state.match || isTrayEmpty() || state.gameOver || placementPending || drag) return;
   if (isAiTurn() && !fromAi) return;
   hideModal();
   state.gameOver = endMatchTurn(state.match, true);
@@ -3617,7 +3807,7 @@ function passTurn(fromAi = false) {
 }
 
 function requestPass() {
-  if (!state.match || state.gameOver || placementPending || drag || isAiTurn()) return;
+  if (!state.match || isTrayEmpty() || state.gameOver || placementPending || drag || isAiTurn()) return;
   const canStillPlace = state.tray.some(item => !item.used
     && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
   if (!canStillPlace) {
@@ -3981,6 +4171,14 @@ function updateFullscreenButton() {
 }
 
 elements.undoButton.addEventListener("click", undo);
+elements.continueButton.addEventListener("click", continueTray);
+for (const [button, steps] of [[elements.trayPreviousButton, -1], [elements.trayNextButton, 1]]) {
+  button.addEventListener("click", () => {
+    if (placementPending || drag) return;
+    shiftTray(steps);
+    applyPreferences();
+  });
+}
 elements.passButton.addEventListener("click", requestPass);
 elements.resetButton.addEventListener("click", openResetModal);
 elements.settingsButton.addEventListener("click", openSettings);
@@ -4025,7 +4223,7 @@ initSettings({
     resetSavedGames();
     restartForSettingsChange();
   },
-  onAccessibilityChange: applyPreferences,
+  onAccessibilityChange: applyAccessibilityPreferences,
   onChangelogClose: scheduleAiMove,
   onResetBest: () => {
     resetAllScores();
@@ -4066,10 +4264,7 @@ function restoreCurrentGame(showWelcome) {
       else hideModal();
     } else {
       hideModal();
-      if (state.tray.every(item => item.used)) {
-        if (state.match) endMatchTurn(state.match);
-        deliverTray();
-      }
+      if (!shouldWaitForContinue()) continueTray();
       if (state.timerStarted) startTimer();
     }
   } else {

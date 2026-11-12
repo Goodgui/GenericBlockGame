@@ -25,6 +25,7 @@ test("both boards use shared offset defaults and their own snap defaults", () =>
     game.setBoardMode(mode);
     const preferences = game.loadPreferences();
     assert.equal(preferences.dragInitialOffset, 100);
+    assert.equal(preferences.slowModeEnabled, false);
     assert.equal(preferences.dragMovingOffset, 180);
     assert.equal(preferences.dragHorizontalOffset, 170);
     assert.equal(preferences.snapOverlapMultiplier, mode === "hex" ? 1.5 : 2);
@@ -37,13 +38,14 @@ test("accessibility is shared while general settings and pieces stay with their 
   const { game, saved } = setup();
   const hex = game.loadPreferences();
   Object.assign(hex, {
-    dragInitialOffset: 95, dragMovingOffset: 210, dragHorizontalOffset: 200, pieceHue: 80,
+    slowModeEnabled: true, dragInitialOffset: 95, dragMovingOffset: 210, dragHorizontalOffset: 200, pieceHue: 80,
     snapOverlapMultiplier: 1.8, boardSide: 6, traySize: 4, twoPlayerEnabled: true,
     pieces: { bend3: { weight: 9 } }, customPieces: [{ id: "hex-custom", cells: [[0,0]], weight: 5 }],
   });
   game.savePreferences(hex);
   game.setBoardMode("square");
   const square = game.loadPreferences();
+  assert.equal(square.slowModeEnabled, true);
   assert.equal(square.dragInitialOffset, 95);
   assert.equal(square.dragMovingOffset, 210);
   assert.equal(square.dragHorizontalOffset, 200);
@@ -67,6 +69,7 @@ test("accessibility is shared while general settings and pieces stay with their 
   assert.equal(restored.pieces.bend3.weight, 9);
   assert.equal(restored.customPieces[0].id, "hex-custom");
   assert.equal(JSON.parse(saved.get(game.CONFIG.settingsKey)).dragInitialOffset, undefined);
+  assert.equal(JSON.parse(saved.get(game.CONFIG.settingsKey)).slowModeEnabled, undefined);
   assert.equal(JSON.parse(saved.get(game.CONFIG.globalSettingsKey)).snapOverlapMultiplier, undefined);
 });
 
@@ -132,6 +135,7 @@ test("global reset clears both profiles and scores, keeping the selected board",
     const preferences = game.loadPreferences();
     preferences.traySize = 8;
     preferences.dragInitialOffset = 25;
+    preferences.slowModeEnabled = true;
     preferences.customPieces.push({ id: "custom", weight: 5, cells: [[0,0]] });
     game.savePreferences(preferences);
     game.saveBestScore(100);
@@ -148,6 +152,7 @@ test("global reset clears both profiles and scores, keeping the selected board",
     game.setBoardMode(mode);
     assert.equal(game.loadPreferences().traySize, 3);
     assert.equal(game.loadPreferences().dragInitialOffset, 100);
+    assert.equal(game.loadPreferences().slowModeEnabled, false);
     assert.equal(game.loadPreferences().customPieces.length, 0);
     assert.equal(game.loadPreferences().snapOverlapMultiplier, mode === "hex" ? 1.5 : 2);
     assert.equal(game.loadBestScore(), 0);
