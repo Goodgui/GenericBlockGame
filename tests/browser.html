@@ -30,6 +30,7 @@
   <script src="../preferences.js"></script>
   <script src="../shapes.js"></script>
   <script src="../board.js"></script>
+  <script src="../scoring.js"></script>
   <script src="../two-player.js"></script>
   <script>
     const game = window.GenericBlockGame;
@@ -79,10 +80,10 @@
         for (const key of ["-2,0", "-1,0", "-2,1", "0,-2"]) board.cells[key] = 1;
         for (const key of ["2,0", "2,-1", "1,1", "0,2"]) board.cells[key] = 2;
       }
-      const tray = ["single", "line5", "diamond4"].map((shapeId, index) => ({
+      const tray = ["single", "line4", "diamond4"].map((shapeId, index) => ({
         uid: `fixture-${index}`, shapeId, rotation: 0, used: name === "refill" && index > 0,
       }));
-      if (name === "gameOver") tray[1].shapeId = tray[2].shapeId = "line5";
+      if (name === "gameOver") tray[1].shapeId = tray[2].shapeId = "line4";
       if (name === "versusRefill") {
         tray[1].used = tray[2].used = true;
         match.placed = 2;

@@ -1,10 +1,18 @@
 (function () {
+const { scorePlacement } = window.GenericBlockGame;
+
 function createMatch() {
   return { player: 0, scores: [0, 0], streaks: [0, 0], placed: 0, consecutivePasses: 0 };
 }
 
 function cloneMatch(match) {
   return match ? { ...match, scores: [...match.scores], streaks: [...match.streaks] } : null;
+}
+
+// Board values track each player's pieces, while VS AI swaps their colors.
+function matchPlayerColor(state, player) {
+  const redPlayer = state.aiOpponent ? 1 : 0;
+  return player === redPlayer ? "red" : "blue";
 }
 
 function isValidMatch(match) {
@@ -19,10 +27,10 @@ function isValidMatch(match) {
 function recordMatchPlacement(match, completed) {
   match.placed += 1;
   const player = match.player;
-  match.streaks[player] = completed.zoneCount ? match.streaks[player] + 1 : 0;
-  const gained = completed.pointValue * completed.zoneCount * match.streaks[player];
-  match.scores[player] += gained;
-  return gained;
+  const scored = scorePlacement(match.streaks[player], completed);
+  match.streaks[player] = scored.streak;
+  match.scores[player] += scored.points;
+  return scored.points;
 }
 
 // Only a completed tray breaks a run of passes.
@@ -35,6 +43,6 @@ function endMatchTurn(match, passed = false) {
 }
 
 Object.assign(window.GenericBlockGame, {
-  createMatch, cloneMatch, isValidMatch, recordMatchPlacement, endMatchTurn,
+  createMatch, cloneMatch, matchPlayerColor, isValidMatch, recordMatchPlacement, endMatchTurn,
 });
 }());

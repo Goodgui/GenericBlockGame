@@ -8,7 +8,6 @@ const SHAPES = [
   { id: "line2", weight: 5, cells: [[0,0],[1,0]] },
   { id: "line3", weight: 5, cells: [[0,0],[1,0],[2,0]] },
   { id: "line4", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { id: "line5", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
   { id: "bend3", weight: 5, cells: [[0,0],[1,0],[1,1]] },
   { id: "triangle3", weight: 5, cells: [[0,0],[1,0],[0,1]] },
   { id: "diamond4", weight: 5, cells: [[0,0],[1,0],[0,1],[1,1]] },
@@ -16,6 +15,9 @@ const SHAPES = [
   { id: "zigzag4", weight: 5, cells: [[0,0],[1,0],[1,1],[2,1]] },
   { id: "hook4", weight: 5, cells: [[0,0],[1,0],[2,0],[2,-1]] },
   { id: "arc4", weight: 5, cells: [[0,0],[1,0],[1,1],[0,2]] },
+  { id: "triangleTail4", weight: 5, cells: [[0,0],[1,0],[0,1],[0,2]] },
+  { id: "hookLeft4", weight: 5, cells: [[0,0],[-1,1],[-1,2],[-1,3]] },
+  { id: "hookRight4", weight: 5, cells: [[0,0],[1,0],[1,1],[1,2]] },
 ];
 
 const SQUARE_SHAPES = [
@@ -25,15 +27,15 @@ const SQUARE_SHAPES = [
   { id: "line3", cells: [[0,0],[1,0],[2,0]] },
   { id: "diagonal3", cells: [[0,0],[1,1],[2,2]] },
   { id: "line4", cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { id: "line5", cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
   { id: "square2", cells: [[0,0],[1,0],[0,1],[1,1]] },
   { id: "corner3", cells: [[0,0],[0,1],[1,1]] },
   { id: "corner5", cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
   { id: "t4", cells: [[0,0],[1,0],[2,0],[1,1]] },
   { id: "s4", cells: [[1,0],[2,0],[0,1],[1,1]] },
   { id: "z4", cells: [[0,0],[1,0],[1,1],[2,1]] },
-  { id: "plus5", cells: [[1,0],[0,1],[1,1],[2,1],[1,2]] },
-  { id: "u5", cells: [[0,0],[2,0],[0,1],[1,1],[2,1]] },
+  { id: "l4", cells: [[0,0],[0,1],[0,2],[1,2]] },
+  { id: "j4", cells: [[1,0],[1,1],[0,2],[1,2]] },
+  { id: "t5", cells: [[0,0],[1,0],[2,0],[1,1],[1,2]] },
 ].map(shape => {
   const [anchorQ, anchorR] = shape.cells[0];
   return { ...shape, weight: 5, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };

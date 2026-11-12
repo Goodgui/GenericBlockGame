@@ -20,6 +20,7 @@ const CONFIG = {
 
   storageKey: "generic-block-game-hex-state-v1",
   twoPlayerStorageKey: "generic-block-game-hex-two-player-v1",
+  aiStorageKey: "generic-block-game-hex-vs-ai-v1",
   bestScoreKey: "generic-block-game-hex-best-v1",
   modifiedBestScoreKey: "generic-block-game-hex-best-modified-v1",
   timedBestScoreKey: "generic-block-game-hex-best-timed-v1",
@@ -38,6 +39,21 @@ const SQUARE_STORAGE = {
   settingsKey: "generic-block-game-settings-v1",
 };
 
+const APP_VERSION = "0.2";
+
+// Newest version first. The changelog modal lists the entries for APP_VERSION.
+const CHANGELOG = [
+  {
+    version: "0.2",
+    changes: [
+      "New hexagonal game mode!",
+      "Two Player and VS Ai modes",
+      "6 new default pieces",
+      "Better visibility for clearable sections",
+    ],
+  },
+];
+
 function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
   return mode === "square" ? SQUARE_STORAGE : CONFIG;
 }
@@ -45,4 +61,6 @@ function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
 window.GenericBlockGame = window.GenericBlockGame || {};
 window.GenericBlockGame.CONFIG = CONFIG;
 window.GenericBlockGame.storageKeys = storageKeys;
+window.GenericBlockGame.APP_VERSION = APP_VERSION;
+window.GenericBlockGame.CHANGELOG = CHANGELOG;
 }());

@@ -67,7 +67,7 @@ function fillShape(board, shape, originQ, originR, value = 1) {
   for (const [q, r] of shape.cells) board.cells[hexKey(originQ + q, originR + r)] = value;
 }
 
-// These centers tile the grid with separate seven-cell hexagons.
+// Use the same fixed groups for clears and outlines.
 function boardChunks(board) {
   if (board.type === "square") {
     const chunks = [];
@@ -83,16 +83,28 @@ function boardChunks(board) {
     return chunks;
   }
   const neighbors = [[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
-  return Object.keys(board.cells).flatMap(key => {
+  const chunks = Object.keys(board.cells).flatMap(key => {
     const [q, r] = key.split(",").map(Number);
     if (((q - 2 * r) % 7 + 7) % 7 !== 0) return [];
-    const cells = neighbors.map(([dq, dr]) => hexKey(q + dq, r + dr));
-    return cells.every(cell => Object.hasOwn(board.cells, cell)) ? [{ center: key, cells }] : [];
+    const cells = neighbors.map(([dq, dr]) => hexKey(q + dq, r + dr))
+      .filter(cell => Object.hasOwn(board.cells, cell));
+    return cells.length === 7 || (board.radius === 3 && cells.length === 5) ? [{ center: key, cells }] : [];
   });
+  if (board.radius === 5) {
+    // Two rows of three cells form one outer group. Repeat it at each corner.
+    let cells = [[-5,4],[-4,4],[-3,4],[-5,5],[-4,5],[-3,5]];
+    let center = [-4,5];
+    for (let turn = 0; turn < 6; turn += 1) {
+      chunks.push({ center: hexKey(...center), cells: cells.map(([q, r]) => hexKey(q, r)) });
+      cells = cells.map(([q, r]) => [-r, q + r]);
+      center = [-center[1], center[0] + center[1]];
+    }
+  }
+  return chunks;
 }
 
-// Lines follow constant q, r, or s. Count shared cells once when clearing.
-function findCompletedCells(board) {
+// Lines follow constant q, r, or s. Groups use the fixed board outlines.
+function boardZones(board) {
   const lines = new Map();
   for (const key of Object.keys(board.cells)) {
     const [q, r] = key.split(",").map(Number);
@@ -103,20 +115,19 @@ function findCompletedCells(board) {
       lines.get(lineKey).push(key);
     }
   }
+  return [...lines.values(), ...boardChunks(board).map(chunk => chunk.cells)];
+}
+
+// Count shared cells once when clearing, but score each completed zone.
+function findCompletedCells(board, zones = boardZones(board)) {
   const completed = new Set();
   let zoneCount = 0;
   let pointValue = 0;
-  for (const line of lines.values()) {
+  for (const line of zones) {
     if (!line.every(key => board.cells[key])) continue;
     zoneCount += 1;
     pointValue += line.length;
     for (const key of line) completed.add(key);
-  }
-  for (const chunk of boardChunks(board)) {
-    if (!chunk.cells.every(key => board.cells[key])) continue;
-    zoneCount += 1;
-    pointValue += chunk.cells.length;
-    for (const key of chunk.cells) completed.add(key);
   }
   return { cells: completed, zoneCount, pointValue };
 }
@@ -126,7 +137,7 @@ function clearCells(board, completed) {
 }
 
 Object.assign(window.GenericBlockGame, {
-  createEmptyBoard, cloneBoard, boardChunks, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
+  createEmptyBoard, cloneBoard, boardChunks, boardZones, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
   getBoardSide, getBoardDimensions, boardPoint, boardCellAt, placementDistance,
 });
 }());

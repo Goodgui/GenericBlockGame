@@ -13,7 +13,7 @@ function setup(entries = []) {
       setItem: (key, value) => saved.set(key, value),
     },
   });
-  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "two-player.js", "storage.js"]) {
+  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "storage.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
   return { game: context.window.GenericBlockGame, saved };
@@ -68,6 +68,24 @@ test("accessibility is shared while general settings and pieces stay with their 
   assert.equal(restored.customPieces[0].id, "hex-custom");
   assert.equal(JSON.parse(saved.get(game.CONFIG.settingsKey)).dragInitialOffset, undefined);
   assert.equal(JSON.parse(saved.get(game.CONFIG.globalSettingsKey)).snapOverlapMultiplier, undefined);
+});
+
+test("the seen version is stored with shared settings and survives saves and resets", () => {
+  const fresh = setup();
+  assert.equal(fresh.game.loadSeenVersion(), fresh.game.APP_VERSION);
+
+  const { game, saved } = setup([[ "generic-block-game-board-mode-v1", "hex" ]]);
+  assert.equal(game.loadSeenVersion(), null);
+  const stale = game.loadPreferences();
+  game.saveSeenVersion();
+  assert.equal(JSON.parse(saved.get(game.CONFIG.globalSettingsKey)).version, game.APP_VERSION);
+  game.savePreferences({ ...stale, pieceHue: 40 });
+  assert.equal(game.loadSeenVersion(), game.APP_VERSION);
+  assert.equal(game.loadPreferences().pieceHue, 40);
+  game.resetAllPreferences();
+  assert.equal(game.loadSeenVersion(), game.APP_VERSION);
+  game.saveSeenVersion("0.1");
+  assert.equal(game.loadSeenVersion(), "0.1");
 });
 
 test("legacy defaults migrate while custom settings and square board sizes survive", () => {

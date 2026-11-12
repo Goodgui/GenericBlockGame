@@ -23,6 +23,7 @@
   <script src="../preferences.js"></script>
   <script src="../shapes.js"></script>
   <script src="../board.js"></script>
+  <script src="../scoring.js"></script>
   <script src="../two-player.js"></script>
   <script>
     const api = window.GenericBlockGame;
@@ -140,7 +141,7 @@
         await check("A blocked tray waits for Pass and skips confirmation", async () => {
           const board = api.createEmptyBoard();
           for (const key of Object.keys(board.cells)) board.cells[key] = 1;
-          await load({ board, shapes: ["line5"] });
+          await load({ board, shapes: ["line4"] });
           assert(!saved().gameOver, "Blocked board ended before a pass");
           click("passButton");
           assert(saved().match.player === 1 && saved().match.consecutivePasses === 1, "Pass did not switch");

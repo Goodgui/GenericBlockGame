@@ -1,6 +1,7 @@
 """Bundle GenericBlockGame into one HTML file with no asset downloads."""
 
 from pathlib import Path
+from base64 import b64encode
 import re
 
 root = Path(__file__).resolve().parent
@@ -19,6 +20,8 @@ def inline_script(match):
 
 
 html = re.sub(r'<link rel="stylesheet" href="([^"]+)">', inline_style, html)
+icon = b64encode((root / "icon.svg").read_bytes()).decode("ascii")
+html = html.replace('href="icon.svg"', f'href="data:image/svg+xml;base64,{icon}"')
 html = re.sub(r'<script src="([^"]+)"></script>', inline_script, html)
 html = html.replace(
     "<!-- Ordered classic scripts also work when this file is opened with file://. -->",

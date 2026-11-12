@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
   <title>GenericBlockGame</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,7 +17,6 @@
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
         </svg>
       </button>
-      <span id="boardLabel" class="board-label">Hex</span>
       <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 4v6h6"></path>
@@ -88,12 +88,22 @@
             <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
             <button type="button" data-mode="timed" role="radio">Time Trial</button>
             <button type="button" data-mode="two-player" role="radio">2 Player</button>
+            <button type="button" data-mode="ai" role="radio">VS AI</button>
           </div>
           <label class="setting-toggle">
             <span>Show undo button</span>
             <input id="undoSetting" type="checkbox">
           </label>
           <div class="drag-settings">
+            <div id="aiDifficultyRow" class="board-size-setting" hidden>
+              <span>AI difficulty</span>
+              <div id="aiDifficultySetting" class="segmented-control" role="radiogroup" aria-label="AI difficulty">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-difficulty="easy" role="radio">Easy</button>
+                <button type="button" data-difficulty="medium" role="radio">Medium</button>
+                <button type="button" data-difficulty="hard" role="radio">Hard</button>
+              </div>
+            </div>
             <label id="timeTrialDurationRow">
               <span>Time trial limit</span>
               <span class="number-stepper">
@@ -218,7 +228,7 @@
         </section>
 
         <footer class="settings-footer">
-          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
+          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a> | <button id="appVersion" type="button" aria-label="View change log" aria-haspopup="dialog" aria-controls="changelogModal"></button>
         </footer>
         </div>
       </div>
@@ -247,13 +257,26 @@
     </div>
   </div>
 
+  <div id="changelogModal" class="modal changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+    <div class="modal-card">
+      <h1 id="changelogTitle">What's new</h1>
+      <p id="changelogVersion"></p>
+      <ul id="changelogList" class="changelog-list"></ul>
+      <div class="modal-actions">
+        <button id="changelogButton" class="primary-button" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ordered classic scripts also work when this file is opened with file://. -->
   <script src="config.js"></script>
   <script src="hex.js"></script>
   <script src="preferences.js"></script>
   <script src="shapes.js"></script>
   <script src="board.js"></script>
+  <script src="scoring.js"></script>
   <script src="two-player.js"></script>
+  <script src="ai.js"></script>
   <script src="storage.js"></script>
   <script src="ui.js"></script>
   <script src="settings.js"></script>

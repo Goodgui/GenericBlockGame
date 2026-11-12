@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
   <title>GenericBlockGame</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4KICA8dGl0bGU+U2V2ZW4gaGV4YWdvbnMgd2l0aCB0aHJlZSBibHVlIGNlbGxzIGF0IHRoZSBsb3dlciBsZWZ0PC90aXRsZT4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjODhhOGNlIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iIzUyNzQ5YyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxwb2x5Z29uIGlkPSJoZXgiIHBvaW50cz0iMCwtNDQgMzguMTA1LC0yMiAzOC4xMDUsMjIgMCw0NCAtMzguMTA1LDIyIC0zOC4xMDUsLTIyIi8+CiAgPC9kZWZzPgogIDxnIGZpbGw9IiMyMzI3MmUiIHN0cm9rZT0iI2E1YjJjNCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDx1c2UgaHJlZj0iI2hleCIgeD0iODkuODk1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxNjYuMTA1IiB5PSI2MiIvPgogICAgPHVzZSBocmVmPSIjaGV4IiB4PSI1MS43OSIgeT0iMTI4IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjEyOCIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjIwNC4yMSIgeT0iMTI4Ii8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iMTk0IiBmaWxsPSJ1cmwoI2JsdWUpIi8+CiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjE2Ni4xMDUiIHk9IjE5NCIgZmlsbD0idXJsKCNibHVlKSIvPgogIDwvZz4KPC9zdmc+Cg==">
   <style>
 :root {
   color-scheme: dark;
@@ -13,6 +14,8 @@
   --surface-2: #343a45;
   --grid: #555c68;
   --grid-heavy: #747d8b;
+  --section-edge-light: #5d646f;
+  --section-edge-dark: #363e47;
   --text: #f0f2f5;
   --muted: #a1a7b0;
   --accent: #6688ad;
@@ -23,6 +26,11 @@
   --piece-dark: hsl(var(--piece-hue) 32% 43%);
   --valid: #8aa6bc;
   --danger: #9a7378;
+  --board-rim: #363b44;
+  --board-edge: #585f6b;
+  --cell-empty: #22262d;
+  --cell-tint: #2e323c;
+  --cell-tint-light: #383d47;
   --board-size: min(calc(100vw - 10px), 58vh, 580px);
   --hex-points: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
   font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -72,7 +80,6 @@ button { font: inherit; }
 
 .topbar { min-height: 52px; }
 .topbar { padding: 0 18px; }
-.board-label { color: var(--muted); font-size: 14px; }
 .square-mode { --hex-points: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
 
 .topbar-spacer { width: 44px; }
@@ -181,37 +188,53 @@ button { font: inherit; }
   position: relative;
   width: var(--board-size);
   margin: 0 auto;
+  padding: 10px;
 }
 
 .board {
   position: relative;
-  width: var(--board-size);
+  width: 100%;
+  isolation: isolate;
   background: transparent;
 }
 
 .cell {
   position: absolute;
+  z-index: 2;
   clip-path: var(--hex-points);
-  background: var(--grid);
+  background: transparent;
 }
 
 .cell::before {
   content: "";
   position: absolute;
-  inset: 1px;
-  clip-path: var(--hex-points);
-  background: #22262d;
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
+  background: var(--cell-empty);
 }
-.cell.chunk-tint-a::before { background: #2b3039; }
-.cell.chunk-tint-b::before { background: #303641; }
-.chunk-outlines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
-.chunk-outlines path { fill: none; stroke: #939eaf; stroke-width: 2.5px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.cell[data-section-shade="1"]::before { background: var(--cell-tint); }
+.cell[data-section-shade="2"]::before { background: var(--cell-tint-light); }
+.board-frame, .chunk-outlines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.board-frame { z-index: 0; }
+.board-frame path { vector-effect: non-scaling-stroke; stroke-linejoin: miter; }
+.board-frame .frame-edge { fill: none; stroke: var(--board-edge); stroke-width: 22px; }
+.board-frame .frame-rim { fill: none; stroke: var(--board-rim); stroke-width: 20px; }
+.board-frame .frame-grid { fill: var(--grid); stroke: none; }
+.chunk-outlines { z-index: 1; }
+.chunk-outlines path { fill: none; stroke: var(--section-edge-light); stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.chunk-outlines path[data-filled="true"] { stroke: var(--section-edge-dark); }
+.chunk-outlines path[data-filled="true"],
+.chunk-outlines path.clear-fade[data-filled="false"] { transition: stroke 2s ease; }
+
+.square-mode .board .cell::before, .square-mode .board .cell::after {
+  inset: var(--cell-inset-top, 0.5px) var(--cell-inset-right, 0.5px) var(--cell-inset-bottom, 0.5px) var(--cell-inset-left, 0.5px);
+}
 
 .cell.filled::after, .piece-cell, .drag-cell {
   content: "";
   position: absolute;
-  inset: 1px;
-  clip-path: var(--hex-points);
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
   background: linear-gradient(180deg, var(--piece-bright), var(--piece-dark));
   box-shadow: inset 1px 1px 0 rgba(255,255,255,.32), inset -1px -1px 0 rgba(40,64,90,.22);
 }
@@ -219,8 +242,8 @@ button { font: inherit; }
 .cell.preview-valid::after {
   content: "";
   position: absolute;
-  inset: 1px;
-  clip-path: var(--hex-points);
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
   background: rgba(117,149,177,.5);
   box-shadow: inset 0 0 0 2px var(--valid);
 }
@@ -228,8 +251,8 @@ button { font: inherit; }
 .cell.preview-invalid::after {
   content: "";
   position: absolute;
-  inset: 1px;
-  clip-path: var(--hex-points);
+  inset: 0;
+  clip-path: var(--cell-fill-points, var(--hex-points));
   background: rgba(255,101,119,.25);
   box-shadow: inset 0 0 0 2px rgba(255,101,119,.65);
 }
@@ -521,6 +544,8 @@ button { font: inherit; }
   width: calc((100% - 6px) / var(--segment-count, 3));
 }
 
+.tray[aria-busy="true"] .tray-slot { cursor: default; }
+
 .board-mode-tabs { --segment-count: 2; grid-template-columns: repeat(2, 1fr); margin-bottom: 22px; }
 .segmented-control button[aria-selected="true"] { color: white; }
 .drag-settings [hidden], .mode-segmented-control [hidden] { display: none; }
@@ -702,6 +727,16 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .settings-footer a { color: var(--accent-bright); }
 
+#appVersion {
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--accent-bright);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .fullscreen-button {
   position: fixed;
   z-index: 40;
@@ -740,6 +775,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .drag-layer.active { display: block; }
 .drag-layer.returning { transition: transform .04s ease-out; }
+.drag-layer.ai-moving { transition: transform .42s cubic-bezier(.3, .7, .25, 1); }
 .drag-cell { inset: 0; border-radius: 0; }
 .drag-layer.invalid { opacity: .6; filter: grayscale(.55) drop-shadow(0 8px 7px rgba(49,57,67,.2)); }
 
@@ -826,6 +862,22 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: 0 20px 60px rgba(0,0,0,.48);
 }
 
+.changelog-modal { z-index: 130; }
+.changelog-modal .modal-card {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.changelog-modal .modal-card p { margin-bottom: 14px; }
+.changelog-list {
+  margin: 0 auto 26px;
+  padding-left: 20px;
+  max-width: 330px;
+  color: #c3c8d0;
+  text-align: left;
+  line-height: 1.5;
+}
+.changelog-list li + li { margin-top: 6px; }
+
 .modal-card h1 { margin: 0 0 10px; font-size: 32px; }
 .modal-card p { margin: 0 auto 26px; max-width: 330px; color: #a8aeb8; line-height: 1.55; }
 
@@ -857,6 +909,8 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 @media (max-width: 420px) {
+  .best-score { max-width: 34%; }
+  .best-score .score-label { font-size: 12px; line-height: 1.2; }
   .piece-setting-row { grid-template-columns: 24px 48px minmax(0, 1fr) 34px; }
   .piece-setting-row > input { grid-column: 1; grid-row: 1; }
   .settings-piece-preview { grid-column: 2; grid-row: 1; }
@@ -922,7 +976,6 @@ input[type="number"]::-webkit-outer-spin-button {
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.86 2.86-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.86-2.86.06-.06A1.7 1.7 0 0 0 4.2 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2.4v-4h.1A1.7 1.7 0 0 0 4.2 8.6a1.7 1.7 0 0 0-.34-1.88l-.06-.06L6.66 3.8l.06.06A1.7 1.7 0 0 0 8.6 4.2a1.7 1.7 0 0 0 1-.6A1.7 1.7 0 0 0 10 2.5v-.1h4v.1a1.7 1.7 0 0 0 1 1.7 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.86 2.86-.06.06A1.7 1.7 0 0 0 19.4 8.6a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1a1.7 1.7 0 0 0-1.7 1Z"></path>
         </svg>
       </button>
-      <span id="boardLabel" class="board-label">Hex</span>
       <button id="resetButton" class="icon-button" type="button" aria-label="Restart game" title="Restart game">
         <svg aria-hidden="true" viewBox="0 0 24 24">
           <path d="M4 4v6h6"></path>
@@ -994,12 +1047,22 @@ input[type="number"]::-webkit-outer-spin-button {
             <button type="button" data-mode="unlimited" role="radio">Unlimited</button>
             <button type="button" data-mode="timed" role="radio">Time Trial</button>
             <button type="button" data-mode="two-player" role="radio">2 Player</button>
+            <button type="button" data-mode="ai" role="radio">VS AI</button>
           </div>
           <label class="setting-toggle">
             <span>Show undo button</span>
             <input id="undoSetting" type="checkbox">
           </label>
           <div class="drag-settings">
+            <div id="aiDifficultyRow" class="board-size-setting" hidden>
+              <span>AI difficulty</span>
+              <div id="aiDifficultySetting" class="segmented-control" role="radiogroup" aria-label="AI difficulty">
+                <span class="segmented-indicator" aria-hidden="true"></span>
+                <button type="button" data-difficulty="easy" role="radio">Easy</button>
+                <button type="button" data-difficulty="medium" role="radio">Medium</button>
+                <button type="button" data-difficulty="hard" role="radio">Hard</button>
+              </div>
+            </div>
             <label id="timeTrialDurationRow">
               <span>Time trial limit</span>
               <span class="number-stepper">
@@ -1124,7 +1187,7 @@ input[type="number"]::-webkit-outer-spin-button {
         </section>
 
         <footer class="settings-footer">
-          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a>
+          GenericBlockGame | Created by Goodgui | <a href="https://github.com/Goodgui" target="_blank" rel="noopener noreferrer">View on Github</a> | <button id="appVersion" type="button" aria-label="View change log" aria-haspopup="dialog" aria-controls="changelogModal"></button>
         </footer>
         </div>
       </div>
@@ -1153,6 +1216,17 @@ input[type="number"]::-webkit-outer-spin-button {
     </div>
   </div>
 
+  <div id="changelogModal" class="modal changelog-modal" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+    <div class="modal-card">
+      <h1 id="changelogTitle">What's new</h1>
+      <p id="changelogVersion"></p>
+      <ul id="changelogList" class="changelog-list"></ul>
+      <div class="modal-actions">
+        <button id="changelogButton" class="primary-button" type="button">Got it</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Standalone export: styles and scripts are included below. -->
   <script>
 (function () {
@@ -1177,6 +1251,7 @@ const CONFIG = {
 
   storageKey: "generic-block-game-hex-state-v1",
   twoPlayerStorageKey: "generic-block-game-hex-two-player-v1",
+  aiStorageKey: "generic-block-game-hex-vs-ai-v1",
   bestScoreKey: "generic-block-game-hex-best-v1",
   modifiedBestScoreKey: "generic-block-game-hex-best-modified-v1",
   timedBestScoreKey: "generic-block-game-hex-best-timed-v1",
@@ -1195,6 +1270,21 @@ const SQUARE_STORAGE = {
   settingsKey: "generic-block-game-settings-v1",
 };
 
+const APP_VERSION = "0.2";
+
+// Newest version first. The changelog modal lists the entries for APP_VERSION.
+const CHANGELOG = [
+  {
+    version: "0.2",
+    changes: [
+      "New hexagonal game mode!",
+      "Two Player and VS Ai modes",
+      "6 new default pieces",
+      "Better visibility for clearable sections",
+    ],
+  },
+];
+
 function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
   return mode === "square" ? SQUARE_STORAGE : CONFIG;
 }
@@ -1202,6 +1292,8 @@ function storageKeys(mode = window.GenericBlockGame.getBoardMode?.() || "hex") {
 window.GenericBlockGame = window.GenericBlockGame || {};
 window.GenericBlockGame.CONFIG = CONFIG;
 window.GenericBlockGame.storageKeys = storageKeys;
+window.GenericBlockGame.APP_VERSION = APP_VERSION;
+window.GenericBlockGame.CHANGELOG = CHANGELOG;
 }());
 
 </script>
@@ -1254,7 +1346,11 @@ Object.assign(window.GenericBlockGame, {
 </script>
   <script>
 (function () {
-const { CONFIG, storageKeys } = window.GenericBlockGame;
+const { CONFIG, storageKeys, APP_VERSION } = window.GenericBlockGame;
+// Checked before any settings are written, so a brand-new player is not shown a changelog.
+const firstVisit = [CONFIG.globalSettingsKey, CONFIG.boardModeKey,
+  storageKeys("hex").settingsKey, storageKeys("square").settingsKey]
+  .every(key => localStorage.getItem(key) === null);
 
 function getBoardMode() {
   return localStorage.getItem(CONFIG.boardModeKey) === "square" ? "square" : "hex";
@@ -1280,6 +1376,8 @@ function defaultModePreferences(mode = getBoardMode()) {
     boardSide: mode === "hex" ? 5 : 9,
     timeTrialEnabled: false,
     twoPlayerEnabled: false,
+    aiEnabled: false,
+    aiDifficulty: "hard",
     timeTrialSeconds: 180,
   };
 }
@@ -1299,6 +1397,25 @@ function readSettings(key) {
 
 function pickSettings(source, defaults) {
   return Object.fromEntries(Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]]));
+}
+
+// The seen version is stored with the shared settings but is not itself a setting.
+function writeGlobalSettings(settings) {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  localStorage.setItem(CONFIG.globalSettingsKey,
+    JSON.stringify(typeof version === "string" ? { ...settings, version } : settings));
+}
+
+// Players from before versioning have saved settings but no seen version.
+function loadSeenVersion() {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  if (typeof version === "string") return version;
+  return firstVisit ? APP_VERSION : null;
+}
+
+function saveSeenVersion(version = APP_VERSION) {
+  const settings = readSettings(CONFIG.globalSettingsKey) || defaultGlobalPreferences();
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify({ ...settings, version }));
 }
 
 function loadGlobalPreferences() {
@@ -1327,7 +1444,7 @@ function loadPreferences(mode = getBoardMode()) {
   const sizes = mode === "hex" ? [4, 5, 6] : [6, 9, 12];
   preferences.boardSide = Number(preferences.boardSide);
   if (!sizes.includes(preferences.boardSide)) preferences.boardSide = defaults.boardSide;
-  if (mode === "square") preferences.twoPlayerEnabled = false;
+  normalizeGameMode(preferences, mode);
   if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
     preferences.snapOverlapMultiplier = 1.5;
   }
@@ -1342,14 +1459,23 @@ function loadPreferences(mode = getBoardMode()) {
 
 function savePreferences(preferences, mode = getBoardMode()) {
   const modeSettings = pickSettings(preferences, defaultModePreferences(mode));
-  if (mode === "square") modeSettings.twoPlayerEnabled = false;
+  normalizeGameMode(modeSettings, mode);
   localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(modeSettings));
-  localStorage.setItem(CONFIG.globalSettingsKey,
-    JSON.stringify(pickSettings(preferences, defaultGlobalPreferences())));
+  writeGlobalSettings(pickSettings(preferences, defaultGlobalPreferences()));
+}
+
+function normalizeGameMode(preferences, mode) {
+  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "hard";
+  if (mode === "square") {
+    preferences.twoPlayerEnabled = false;
+    preferences.aiEnabled = false;
+  }
+  if (preferences.aiEnabled) preferences.twoPlayerEnabled = false;
+  if (preferences.aiEnabled || preferences.twoPlayerEnabled) preferences.timeTrialEnabled = false;
 }
 
 function resetAllPreferences() {
-  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(defaultGlobalPreferences()));
+  writeGlobalSettings(defaultGlobalPreferences());
   for (const mode of ["hex", "square"]) {
     localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
   }
@@ -1385,6 +1511,8 @@ Object.assign(window.GenericBlockGame, {
   defaultPreferences,
   loadPreferences,
   savePreferences,
+  loadSeenVersion,
+  saveSeenVersion,
   isDefaultPreferences,
   isDefaultTimedPreferences,
 });
@@ -1402,7 +1530,6 @@ const SHAPES = [
   { id: "line2", weight: 5, cells: [[0,0],[1,0]] },
   { id: "line3", weight: 5, cells: [[0,0],[1,0],[2,0]] },
   { id: "line4", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { id: "line5", weight: 5, cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
   { id: "bend3", weight: 5, cells: [[0,0],[1,0],[1,1]] },
   { id: "triangle3", weight: 5, cells: [[0,0],[1,0],[0,1]] },
   { id: "diamond4", weight: 5, cells: [[0,0],[1,0],[0,1],[1,1]] },
@@ -1410,6 +1537,9 @@ const SHAPES = [
   { id: "zigzag4", weight: 5, cells: [[0,0],[1,0],[1,1],[2,1]] },
   { id: "hook4", weight: 5, cells: [[0,0],[1,0],[2,0],[2,-1]] },
   { id: "arc4", weight: 5, cells: [[0,0],[1,0],[1,1],[0,2]] },
+  { id: "triangleTail4", weight: 5, cells: [[0,0],[1,0],[0,1],[0,2]] },
+  { id: "hookLeft4", weight: 5, cells: [[0,0],[-1,1],[-1,2],[-1,3]] },
+  { id: "hookRight4", weight: 5, cells: [[0,0],[1,0],[1,1],[1,2]] },
 ];
 
 const SQUARE_SHAPES = [
@@ -1419,15 +1549,15 @@ const SQUARE_SHAPES = [
   { id: "line3", cells: [[0,0],[1,0],[2,0]] },
   { id: "diagonal3", cells: [[0,0],[1,1],[2,2]] },
   { id: "line4", cells: [[0,0],[1,0],[2,0],[3,0]] },
-  { id: "line5", cells: [[0,0],[1,0],[2,0],[3,0],[4,0]] },
   { id: "square2", cells: [[0,0],[1,0],[0,1],[1,1]] },
   { id: "corner3", cells: [[0,0],[0,1],[1,1]] },
   { id: "corner5", cells: [[0,0],[0,1],[0,2],[1,2],[2,2]] },
   { id: "t4", cells: [[0,0],[1,0],[2,0],[1,1]] },
   { id: "s4", cells: [[1,0],[2,0],[0,1],[1,1]] },
   { id: "z4", cells: [[0,0],[1,0],[1,1],[2,1]] },
-  { id: "plus5", cells: [[1,0],[0,1],[1,1],[2,1],[1,2]] },
-  { id: "u5", cells: [[0,0],[2,0],[0,1],[1,1],[2,1]] },
+  { id: "l4", cells: [[0,0],[0,1],[0,2],[1,2]] },
+  { id: "j4", cells: [[1,0],[1,1],[0,2],[1,2]] },
+  { id: "t5", cells: [[0,0],[1,0],[2,0],[1,1],[1,2]] },
 ].map(shape => {
   const [anchorQ, anchorR] = shape.cells[0];
   return { ...shape, weight: 5, cells: shape.cells.map(([q, r]) => [q - anchorQ, r - anchorR]) };
@@ -1601,7 +1731,7 @@ function fillShape(board, shape, originQ, originR, value = 1) {
   for (const [q, r] of shape.cells) board.cells[hexKey(originQ + q, originR + r)] = value;
 }
 
-// These centers tile the grid with separate seven-cell hexagons.
+// Use the same fixed groups for clears and outlines.
 function boardChunks(board) {
   if (board.type === "square") {
     const chunks = [];
@@ -1617,16 +1747,28 @@ function boardChunks(board) {
     return chunks;
   }
   const neighbors = [[0,0],[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
-  return Object.keys(board.cells).flatMap(key => {
+  const chunks = Object.keys(board.cells).flatMap(key => {
     const [q, r] = key.split(",").map(Number);
     if (((q - 2 * r) % 7 + 7) % 7 !== 0) return [];
-    const cells = neighbors.map(([dq, dr]) => hexKey(q + dq, r + dr));
-    return cells.every(cell => Object.hasOwn(board.cells, cell)) ? [{ center: key, cells }] : [];
+    const cells = neighbors.map(([dq, dr]) => hexKey(q + dq, r + dr))
+      .filter(cell => Object.hasOwn(board.cells, cell));
+    return cells.length === 7 || (board.radius === 3 && cells.length === 5) ? [{ center: key, cells }] : [];
   });
+  if (board.radius === 5) {
+    // Two rows of three cells form one outer group. Repeat it at each corner.
+    let cells = [[-5,4],[-4,4],[-3,4],[-5,5],[-4,5],[-3,5]];
+    let center = [-4,5];
+    for (let turn = 0; turn < 6; turn += 1) {
+      chunks.push({ center: hexKey(...center), cells: cells.map(([q, r]) => hexKey(q, r)) });
+      cells = cells.map(([q, r]) => [-r, q + r]);
+      center = [-center[1], center[0] + center[1]];
+    }
+  }
+  return chunks;
 }
 
-// Lines follow constant q, r, or s. Count shared cells once when clearing.
-function findCompletedCells(board) {
+// Lines follow constant q, r, or s. Groups use the fixed board outlines.
+function boardZones(board) {
   const lines = new Map();
   for (const key of Object.keys(board.cells)) {
     const [q, r] = key.split(",").map(Number);
@@ -1637,20 +1779,19 @@ function findCompletedCells(board) {
       lines.get(lineKey).push(key);
     }
   }
+  return [...lines.values(), ...boardChunks(board).map(chunk => chunk.cells)];
+}
+
+// Count shared cells once when clearing, but score each completed zone.
+function findCompletedCells(board, zones = boardZones(board)) {
   const completed = new Set();
   let zoneCount = 0;
   let pointValue = 0;
-  for (const line of lines.values()) {
+  for (const line of zones) {
     if (!line.every(key => board.cells[key])) continue;
     zoneCount += 1;
     pointValue += line.length;
     for (const key of line) completed.add(key);
-  }
-  for (const chunk of boardChunks(board)) {
-    if (!chunk.cells.every(key => board.cells[key])) continue;
-    zoneCount += 1;
-    pointValue += chunk.cells.length;
-    for (const key of chunk.cells) completed.add(key);
   }
   return { cells: completed, zoneCount, pointValue };
 }
@@ -1660,7 +1801,7 @@ function clearCells(board, completed) {
 }
 
 Object.assign(window.GenericBlockGame, {
-  createEmptyBoard, cloneBoard, boardChunks, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
+  createEmptyBoard, cloneBoard, boardChunks, boardZones, canPlace, canPlaceAnywhere, fillShape, findCompletedCells, clearCells,
   getBoardSide, getBoardDimensions, boardPoint, boardCellAt, placementDistance,
 });
 }());
@@ -1668,12 +1809,32 @@ Object.assign(window.GenericBlockGame, {
 </script>
   <script>
 (function () {
+// A move without a clear resets the streak. Each cleared zone scores its cells.
+function scorePlacement(previousStreak, completed) {
+  const streak = completed.zoneCount ? previousStreak + 1 : 0;
+  return { streak, points: completed.pointValue * completed.zoneCount * streak };
+}
+
+window.GenericBlockGame.scorePlacement = scorePlacement;
+}());
+
+</script>
+  <script>
+(function () {
+const { scorePlacement } = window.GenericBlockGame;
+
 function createMatch() {
   return { player: 0, scores: [0, 0], streaks: [0, 0], placed: 0, consecutivePasses: 0 };
 }
 
 function cloneMatch(match) {
   return match ? { ...match, scores: [...match.scores], streaks: [...match.streaks] } : null;
+}
+
+// Board values track each player's pieces, while VS AI swaps their colors.
+function matchPlayerColor(state, player) {
+  const redPlayer = state.aiOpponent ? 1 : 0;
+  return player === redPlayer ? "red" : "blue";
 }
 
 function isValidMatch(match) {
@@ -1688,10 +1849,10 @@ function isValidMatch(match) {
 function recordMatchPlacement(match, completed) {
   match.placed += 1;
   const player = match.player;
-  match.streaks[player] = completed.zoneCount ? match.streaks[player] + 1 : 0;
-  const gained = completed.pointValue * completed.zoneCount * match.streaks[player];
-  match.scores[player] += gained;
-  return gained;
+  const scored = scorePlacement(match.streaks[player], completed);
+  match.streaks[player] = scored.streak;
+  match.scores[player] += scored.points;
+  return scored.points;
 }
 
 // Only a completed tray breaks a run of passes.
@@ -1704,14 +1865,109 @@ function endMatchTurn(match, passed = false) {
 }
 
 Object.assign(window.GenericBlockGame, {
-  createMatch, cloneMatch, isValidMatch, recordMatchPlacement, endMatchTurn,
+  createMatch, cloneMatch, matchPlayerColor, isValidMatch, recordMatchPlacement, endMatchTurn,
 });
 }());
 
 </script>
   <script>
 (function () {
-const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch } = window.GenericBlockGame;
+const {
+  boardZones, cloneBoard, canPlace, fillShape, findCompletedCells, clearCells,
+  shapeById, rotateShape, scorePlacement,
+} = window.GenericBlockGame;
+
+// Hard keeps the original search. Medium considers fewer future moves.
+const SEARCH_LIMITS = {
+  medium: { depth: 2, width: 4 },
+  hard: { depth: 3, width: 8 },
+};
+
+function positionValue(node, zones) {
+  const empty = Object.values(node.board.cells).filter(value => value === 0).length;
+  let nearClear = 0;
+  for (const zone of zones) {
+    const gaps = zone.filter(key => node.board.cells[key] === 0).length;
+    if (gaps === 1) nearClear += 4;
+    else if (gaps === 2) nearClear += 1;
+  }
+  // Favor near clears within our tray, then avoid giving them to the other player.
+  return node.points * 20 + node.placed * 12 + empty * 0.5
+    + (node.remaining.length ? nearClear : -nearClear)
+    + (node.remaining.length === 0 ? 30 : 0);
+}
+
+// Use only the current board and tray. Never change the live game or turn pieces.
+// A null move means pass, including a pass that secures an existing lead.
+function chooseAiMove(state, difficulty = "hard") {
+  if (state.board.type !== "hex" || !state.match || state.match.player !== 1 || state.gameOver) return null;
+  if (difficulty !== "easy" && state.match.consecutivePasses === 1
+    && state.match.scores[1] > state.match.scores[0]) return null;
+  const remaining = state.tray.filter(item => !item.used).map(item => ({
+    item, shape: rotateShape(shapeById(item.shapeId), item.rotation || 0),
+  }));
+  if (!remaining.length) return null;
+  const origins = Object.keys(state.board.cells).map(key => key.split(",").map(Number));
+  // Easy chooses a legal move without checking scores, clears, or future moves.
+  if (difficulty === "easy") {
+    const moves = [];
+    for (const { item, shape } of remaining) {
+      for (const [q, r] of origins) {
+        if (canPlace(state.board, shape, q, r)) moves.push({ uid: item.uid, q, r });
+      }
+    }
+    return moves[Math.floor(Math.random() * moves.length)] || null;
+  }
+  const limits = Object.hasOwn(SEARCH_LIMITS, difficulty) ? SEARCH_LIMITS[difficulty] : SEARCH_LIMITS.hard;
+  const { depth: searchDepth, width: searchWidth } = limits;
+  const zones = boardZones(state.board);
+  let choices = [{ board: state.board, remaining, streak: state.match.streaks[1], points: 0, placed: 0, first: null }];
+  let best = null;
+  for (let depth = 0; depth < Math.min(searchDepth, remaining.length); depth += 1) {
+    const next = [];
+    for (const node of choices) {
+      const seenPieces = new Set();
+      for (const [index, { item, shape }] of node.remaining.entries()) {
+        const pieceKey = `${item.shapeId}:${item.rotation || 0}`;
+        if (seenPieces.has(pieceKey)) continue;
+        seenPieces.add(pieceKey);
+        for (const [q, r] of origins) {
+          if (!canPlace(node.board, shape, q, r)) continue;
+          const board = cloneBoard(node.board);
+          fillShape(board, shape, q, r, 2);
+          const completed = findCompletedCells(board, zones);
+          clearCells(board, completed.cells);
+          const scored = scorePlacement(node.streak, completed);
+          const candidate = {
+            board,
+            remaining: node.remaining.filter((_, other) => other !== index),
+            streak: scored.streak,
+            points: node.points + scored.points,
+            placed: node.placed + 1,
+            first: node.first || { uid: item.uid, q, r },
+          };
+          candidate.value = positionValue(candidate, zones);
+          next.push(candidate);
+          if (!best || candidate.value > best.value) best = candidate;
+        }
+      }
+    }
+    next.sort((a, b) => b.value - a.value);
+    choices = next.slice(0, searchWidth);
+    if (!choices.length) break;
+  }
+  return best?.first || null;
+}
+
+window.GenericBlockGame.chooseAiMove = chooseAiMove;
+}());
+
+</script>
+  <script>
+(function () {
+const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch,
+  findCompletedCells, clearCells, scorePlacement } = window.GenericBlockGame;
+const SAVE_VERSION = 1;
 
 // Reads the saved top score. Missing or invalid values become zero.
 function loadBestScore(mode = getBoardMode()) {
@@ -1746,11 +2002,12 @@ function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
 function saveGame(state) {
   const saved = {
     ...state,
+    saveVersion: SAVE_VERSION,
     history: state.history.slice(-8),
   };
 
   const keys = storageKeys(state.board.type || "hex");
-  const key = state.match ? CONFIG.twoPlayerStorageKey : keys.storageKey;
+  const key = state.match ? (state.aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : keys.storageKey;
   localStorage.setItem(key, JSON.stringify(saved));
 }
 
@@ -1766,12 +2023,30 @@ function restoreBoard(board, mode) {
   return board ? { ...board, type: board.type || mode } : null;
 }
 
+// Old timer saves could include cells whose points were already awarded.
+// Repair only when the last move's score confirms that clear.
+function finishSavedClear(saved) {
+  if (saved.saveVersion !== undefined) return false;
+  const previous = saved.history?.at(-1);
+  const completed = findCompletedCells(saved.board);
+  const streak = saved.match ? saved.match.streaks[saved.match.player] : saved.streak;
+  if (!previous || !completed.zoneCount || !(streak > 0)) return false;
+  const scored = scorePlacement(streak - 1, completed);
+  if (!(scored.points > 0) || saved.score - previous.score !== scored.points) return false;
+  clearCells(saved.board, completed.cells);
+  return true;
+}
+
 // Restore each board's own game. Square mode never loads a match.
-function loadGame(twoPlayer = false, mode = getBoardMode()) {
+function loadGame(matchMode = false, mode = getBoardMode()) {
+  const twoPlayer = Boolean(matchMode);
+  const aiOpponent = matchMode === "ai";
   if (twoPlayer && mode !== "hex") return null;
   try {
-    const key = twoPlayer ? CONFIG.twoPlayerStorageKey : storageKeys(mode).storageKey;
+    const key = twoPlayer ? (aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : storageKeys(mode).storageKey;
     const saved = JSON.parse(localStorage.getItem(key));
+    if (saved?.saveVersion > SAVE_VERSION) return null;
+    if (Boolean(saved?.aiOpponent) !== aiOpponent) return null;
 
     // Keep games and Undo states saved before the pass rule changed.
     if (twoPlayer) {
@@ -1796,6 +2071,10 @@ function loadGame(twoPlayer = false, mode = getBoardMode()) {
 
     saved.board = board;
     for (const entry of saved.history || []) entry.board = restoreBoard(entry.board, mode);
+    if (finishSavedClear(saved)) {
+      saved.saveVersion = SAVE_VERSION;
+      saveGame(saved);
+    }
     return saved;
   } catch {
     return null;
@@ -1812,7 +2091,8 @@ function resetAllScores() {
 }
 
 function resetSavedGames() {
-  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey, CONFIG.twoPlayerStorageKey]) {
+  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey,
+    CONFIG.twoPlayerStorageKey, CONFIG.aiStorageKey]) {
     localStorage.setItem(key, "null");
   }
 }
@@ -1838,13 +2118,16 @@ const {
   CONFIG, shapeById, shapeDimensions, rotateShape, createEmptyBoard, boardChunks,
   hexKey, hexToPixel, boardDimensions, HEX_HEIGHT,
   getBoardMode, getBoardDimensions, shapePoint, cellHeight,
+  matchPlayerColor,
 } = window.GenericBlockGame;
 const boardCells = new Map();
+const sectionEdges = [];
+const HEX_DIRECTIONS = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
+const SQUARE_DIRECTIONS = [[0,-1],[1,0],[0,1],[-1,0]];
 
 // Shared DOM references are kept together so game logic stays readable.
 const elements = {
   board: document.querySelector("#board"),
-  boardLabel: document.querySelector("#boardLabel"),
   tray: document.querySelector("#tray"),
   score: document.querySelector("#score"),
   timerDisplay: document.querySelector("#timerDisplay"),
@@ -1862,8 +2145,10 @@ const elements = {
   turnStatus: document.querySelector("#turnStatus"),
   resetButton: document.querySelector("#resetButton"),
   settingsButton: document.querySelector("#settingsButton"),
+  settingsPanel: document.querySelector("#settingsPanel"),
   fullscreenButton: document.querySelector("#fullscreenButton"),
   modal: document.querySelector("#modal"),
+  changelogModal: document.querySelector("#changelogModal"),
   modalTitle: document.querySelector("#modalTitle"),
   modalText: document.querySelector("#modalText"),
   modalScore: document.querySelector("#modalScore"),
@@ -1911,14 +2196,17 @@ function buildSquareGrid(container, size, makeCell) {
 
 function buildBoard(side) {
   boardCells.clear();
+  sectionEdges.length = 0;
   const board = createEmptyBoard(side);
   const square = board.type === "square";
   document.body.classList.toggle("square-mode", square);
-  elements.boardLabel.textContent = square ? "Square" : "Hex";
   document.querySelector(".game-shell").setAttribute("aria-label", `${square ? "Square" : "Hex"} block puzzle game`);
   elements.modalText.textContent = square
     ? "Fit square pieces. Clear full rows, columns, or outlined 3 by 3 groups."
-    : "Fit hex pieces. Clear full lines in three directions or an outlined seven-hex group. Edge cells outside the groups clear through lines.";
+    : `Fit hex pieces. Clear full lines in three directions or an outlined group.${side === 4
+      ? " Outer groups have five cells. The center group has seven."
+      : side === 6 ? " Outer groups have six cells. Inner groups have seven. Other edge cells clear through lines."
+        : " Groups have seven cells. Other edge cells clear through lines."}`;
   const build = square ? buildSquareGrid : buildHexGrid;
   build(elements.board, side, (q, r, key) => {
     const cell = document.createElement("div");
@@ -1932,55 +2220,185 @@ function buildBoard(side) {
   });
   elements.board.setAttribute("aria-label", square ? `Square board, ${side} by ${side}, ${boardCells.size} cells`
     : `Hexagon board, ${side} cells per edge, ${boardCells.size} cells`);
-  drawChunkOutlines(board, side);
+  drawBoardFrame(board);
+  drawChunkOutlines(board);
 }
 
-// Draw only the outside edges of each fixed group, above the cell fills.
-function drawChunkOutlines(board, side) {
-  const svgNS = "http://www.w3.org/2000/svg";
-  const overlay = document.createElementNS(svgNS, "svg");
+function hexCorners(board, key) {
+  const { width, height } = getBoardDimensions(board);
+  const [q, r] = key.split(",").map(Number);
+  const center = hexToPixel(q, r);
+  return Array.from({ length: 6 }, (_, corner) => {
+    const angle = (corner * 60 - 90) * Math.PI / 180;
+    const x = center.x + width / 2 + Math.cos(angle) / Math.sqrt(3);
+    const y = center.y + height / 2 + Math.sin(angle) / Math.sqrt(3);
+    return `${Number(x.toFixed(6))},${Number(y.toFixed(6))}`;
+  });
+}
+
+function hexBoundary(board, members) {
+  const edges = new Map();
+  for (const key of members) {
+    const [q, r] = key.split(",").map(Number);
+    const points = hexCorners(board, key);
+    for (const [edge, [dq, dr]] of HEX_DIRECTIONS.entries()) {
+      if (!members.has(hexKey(q + dq, r + dr))) edges.set(points[edge], points[(edge + 1) % 6]);
+    }
+  }
+  let path = "";
+  while (edges.size) {
+    const start = edges.keys().next().value;
+    let current = start;
+    path += `M${start}`;
+    do {
+      const next = edges.get(current);
+      edges.delete(current);
+      if (next === start) path += "Z";
+      else path += `L${next}`;
+      current = next;
+    } while (current !== start && edges.has(current));
+  }
+  return path;
+}
+
+function boardOverlay(board, className) {
+  const overlay = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   const { width, height } = getBoardDimensions(board);
   overlay.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  overlay.setAttribute("class", "chunk-outlines");
+  overlay.setAttribute("class", className);
   overlay.setAttribute("aria-hidden", "true");
-  const directions = [[1,-1],[1,0],[0,1],[-1,1],[-1,0],[0,-1]];
-  const chunks = boardChunks(board);
-  chunks.forEach((chunk, index) => {
-    const members = new Set(chunk.cells);
-    if (board.type === "square") {
-      for (const key of chunk.cells) {
-        boardCells.get(key).dataset.chunk = chunk.center;
-        boardCells.get(key).classList.add(index % 2 ? "chunk-tint-a" : "chunk-tint-b");
+  return overlay;
+}
+
+function drawBoardFrame(board) {
+  const overlay = boardOverlay(board, "board-frame");
+  const square = board.type === "square";
+  const border = square ? `M0,0H${board.size}V${board.size}H0Z` : hexBoundary(board, new Set(Object.keys(board.cells)));
+  const surface = square ? border : Object.keys(board.cells).map(key => `M${hexCorners(board, key).join("L")}Z`).join("");
+  for (const [className, path] of [["frame-edge", border], ["frame-rim", border], ["frame-grid", surface]]) {
+    const shape = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    shape.setAttribute("class", className);
+    shape.setAttribute("d", path);
+    overlay.append(shape);
+  }
+  elements.board.append(overlay);
+}
+
+// Reserve a wider gap at group edges. Borders stay below the cell fills.
+function insetHexCell(key, members) {
+  const [q, r] = key.split(",").map(Number);
+  const gaps = HEX_DIRECTIONS.map(([dq, dr]) => !members.has(hexKey(q + dq, r + dr)) ? 1.5 : 0.5);
+  const [a, b, c, d, e, f] = gaps;
+  const root = Math.sqrt(3);
+  const corners = [[50, 0, f - a, (f + a) / root], [100, 25, -b, (2 * a - b) / root],
+    [100, 75, -b, (b - 2 * c) / root], [50, 100, d - c, -(c + d) / root],
+    [0, 75, e, (e - 2 * d) / root], [0, 25, e, (2 * f - e) / root]];
+  const points = corners.map(([x, y, dx, dy]) => `calc(${x}% + ${dx}px) calc(${y}% + ${dy}px)`);
+  boardCells.get(key).style.setProperty("--cell-fill-points", `polygon(${points.join(",")})`);
+}
+
+function sectionShades(chunks, directions, shadeCount) {
+  const sections = chunks.map(chunk => chunk.cells);
+  const owners = new Map(sections.flatMap((cells, index) => cells.map(key => [key, index])));
+  // Give each connected patch outside the clear groups its own shade.
+  for (const start of boardCells.keys()) {
+    if (owners.has(start)) continue;
+    const index = sections.length;
+    const cells = [start];
+    owners.set(start, index);
+    for (let cursor = 0; cursor < cells.length; cursor += 1) {
+      const [q, r] = cells[cursor].split(",").map(Number);
+      for (const [dq, dr] of directions) {
+        const key = hexKey(q + dq, r + dr);
+        if (!boardCells.has(key) || owners.has(key)) continue;
+        owners.set(key, index);
+        cells.push(key);
       }
-      const [q, r] = chunk.center.split(",").map(Number);
-      const outline = document.createElementNS(svgNS, "path");
-      outline.dataset.center = chunk.center;
-      outline.setAttribute("d", `M${q - 1},${r - 1}h3v3h-3Z`);
-      overlay.append(outline);
-      return;
     }
-    let path = "";
-    for (const key of chunk.cells) {
-      boardCells.get(key).dataset.chunk = chunk.center;
-      boardCells.get(key).classList.add(index % 2 ? "chunk-tint-a" : "chunk-tint-b");
+    sections.push(cells);
+  }
+  const neighbors = sections.map(() => new Set());
+  sections.forEach((cells, index) => {
+    for (const key of cells) {
       const [q, r] = key.split(",").map(Number);
-      const center = hexToPixel(q, r);
-      for (let edge = 0; edge < 6; edge += 1) {
-        const [dq, dr] = directions[edge];
-        if (members.has(hexKey(q + dq, r + dr))) continue;
-        const points = [edge, edge + 1].map(corner => {
-          const angle = (corner * 60 - 90) * Math.PI / 180;
-          const x = center.x + width / 2 + Math.cos(angle) / Math.sqrt(3);
-          const y = center.y + height / 2 + Math.sin(angle) / Math.sqrt(3);
-          return `${x},${y}`;
-        });
-        path += `M${points[0]}L${points[1]}`;
+      for (const [dq, dr] of directions) {
+        const other = owners.get(hexKey(q + dq, r + dr));
+        if (other !== undefined && other !== index) neighbors[index].add(other);
       }
     }
-    const outline = document.createElementNS(svgNS, "path");
-    outline.dataset.center = chunk.center;
-    outline.setAttribute("d", path);
-    overlay.append(outline);
+  });
+  const order = sections.map((_, index) => index).sort((a, b) => neighbors[b].size - neighbors[a].size || a - b);
+  const shades = sections.map(() => -1);
+  function assign(position) {
+    if (position === order.length) return true;
+    const index = order[position];
+    const used = new Set([...neighbors[index]].map(other => shades[other]));
+    for (let choice = 0; choice < shadeCount; choice += 1) {
+      const shade = (index + choice) % shadeCount;
+      if (used.has(shade)) continue;
+      shades[index] = shade;
+      if (assign(position + 1)) return true;
+    }
+    shades[index] = -1;
+    return false;
+  }
+  if (!assign(0)) throw new Error(`Board sections need more than ${shadeCount} background shades`);
+  return new Map(sections.flatMap((cells, index) => cells.map(key => [key, shades[index]])));
+}
+
+function insetSquareCell(key, members) {
+  const [q, r] = key.split(",").map(Number);
+  for (const [index, side] of ["top", "right", "bottom", "left"].entries()) {
+    const [dq, dr] = SQUARE_DIRECTIONS[index];
+    boardCells.get(key).style.setProperty(`--cell-inset-${side}`, members.has(hexKey(q + dq, r + dr)) ? "0.5px" : "1.5px");
+  }
+}
+
+function updateSectionOutlines(board) {
+  for (const edge of sectionEdges) {
+    edge.path.dataset.filled = String(Boolean(board.cells[edge.cell] && board.cells[edge.neighbor]));
+  }
+}
+
+// Draw the clear groups between the cells, below both empty and placed fills.
+function drawChunkOutlines(board) {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const overlay = boardOverlay(board, "chunk-outlines");
+  const chunks = boardChunks(board);
+  if (board.type !== "square") {
+    const ungrouped = new Set(boardCells.keys());
+    for (const chunk of chunks) for (const key of chunk.cells) ungrouped.delete(key);
+    for (const key of ungrouped) insetHexCell(key, ungrouped);
+  }
+  const directions = board.type === "square" ? SQUARE_DIRECTIONS : HEX_DIRECTIONS;
+  const shades = sectionShades(chunks, directions, board.type === "square" ? 2 : 3);
+  for (const [key, shade] of shades) boardCells.get(key).dataset.sectionShade = String(shade);
+  const drawn = new Set();
+  chunks.forEach(chunk => {
+    const members = new Set(chunk.cells);
+    for (const key of chunk.cells) {
+      const cell = boardCells.get(key);
+      cell.dataset.chunk = chunk.center;
+      if (board.type === "square") insetSquareCell(key, members);
+      else insetHexCell(key, members);
+      const [q, r] = key.split(",").map(Number);
+      const points = board.type === "square" ? [`${q},${r}`, `${q + 1},${r}`, `${q + 1},${r + 1}`, `${q},${r + 1}`]
+        : hexCorners(board, key);
+      for (const [edge, [dq, dr]] of directions.entries()) {
+        const neighbor = hexKey(q + dq, r + dr);
+        if (members.has(neighbor)) continue;
+        const pair = [key, neighbor].sort().join("|");
+        if (drawn.has(pair)) continue;
+        drawn.add(pair);
+        const outline = document.createElementNS(svgNS, "path");
+        outline.dataset.cell = key;
+        outline.dataset.neighbor = neighbor;
+        outline.dataset.filled = "false";
+        outline.setAttribute("d", `M${points[edge]}L${points[(edge + 1) % points.length]}`);
+        overlay.append(outline);
+        sectionEdges.push({ cell: key, neighbor, path: outline });
+      }
+    }
   });
   elements.board.append(overlay);
 }
@@ -2013,12 +2431,15 @@ function makePiece(shape, cellSize) {
 // Redraws scores, occupied cells, and the current tray.
 // The callback lets the controller attach pointer behavior to each tray slot.
 function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointerDown) {
+  const aiTurn = Boolean(state.aiOpponent && state.match?.player === 1 && !state.gameOver);
+  elements.tray.setAttribute("aria-busy", String(aiTurn));
   boardCells.forEach((cell, key) => {
     cell.classList.toggle("filled", Boolean(state.board.cells[key]));
     cell.dataset.player = state.match && state.board.cells[key]
-      ? (state.board.cells[key] === 1 ? "red" : "blue") : "";
+      ? matchPlayerColor(state, state.board.cells[key] - 1) : "";
     cell.classList.remove("preview-valid", "preview-invalid", "preview-clear", "clearing");
   });
+  updateSectionOutlines(state.board);
 
   elements.tray.replaceChildren();
   const trayColumns = Math.min(state.tray.length, 4);
@@ -2030,6 +2451,7 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
     const placeable = !item.used && isShapePlaceable(shape);
     slot.className = "tray-slot";
     slot.dataset.uid = item.uid;
+    slot.setAttribute("aria-disabled", String(aiTurn || item.used || !placeable));
     slot.style.padding = `${CONFIG.pickupAreaPadding}px`;
     if (item.uid === state.restoredTrayItemUid) slot.classList.add("restored-piece");
 
@@ -2054,15 +2476,20 @@ function renderGame(state, bestScore, bestScoreLabel, isShapePlaceable, onPointe
   elements.bestScorePanel.hidden = Boolean(state.match);
   elements.matchScoreboard.hidden = !state.match;
   if (state.match) {
-    elements.redScore.textContent = state.match.scores[0].toLocaleString();
-    elements.blueScore.textContent = state.match.scores[1].toLocaleString();
-    elements.redPlayer.classList.toggle("active-player", state.match.player === 0 && !state.gameOver);
-    elements.bluePlayer.classList.toggle("active-player", state.match.player === 1 && !state.gameOver);
+    const redPlayer = state.aiOpponent ? 1 : 0;
+    const bluePlayer = 1 - redPlayer;
+    elements.redPlayer.querySelector(".score-label").textContent = state.aiOpponent ? "AI (Red)" : "Red";
+    elements.bluePlayer.querySelector(".score-label").textContent = state.aiOpponent ? "You (Blue)" : "Blue";
+    elements.redScore.textContent = state.match.scores[redPlayer].toLocaleString();
+    elements.blueScore.textContent = state.match.scores[bluePlayer].toLocaleString();
+    elements.redPlayer.classList.toggle("active-player", state.match.player === redPlayer && !state.gameOver);
+    elements.bluePlayer.classList.toggle("active-player", state.match.player === bluePlayer && !state.gameOver);
     const player = state.match.player === 0 ? "Red" : "Blue";
     const noMoves = state.tray.some(item => !item.used)
       && !state.tray.some(item => !item.used && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
     elements.turnStatus.textContent = state.gameOver ? "Both players passed in a row."
-      : `${player}'s turn${noMoves ? ". No pieces fit. Pass to end your turn." : ""}`;
+      : aiTurn ? "AI is choosing a move."
+        : `${state.aiOpponent ? "Your turn (Blue)" : `${player}'s turn`}${noMoves ? ". No pieces fit. Pass to end your turn." : ""}`;
   }
   delete state.restoredTrayItemUid;
 }
@@ -2108,8 +2535,16 @@ function renderDragLayerClearPreview(drag) {
 
 // Runs the board clear and floating score effects.
 function animateClear(completed, gained) {
-  for (const key of completed) {
+  const cleared = new Set(completed);
+  for (const key of cleared) {
     boardCells.get(key)?.classList.add("clearing");
+  }
+  // Outlines fade lighter once the cleared board renders.
+  for (const edge of sectionEdges) {
+    if (!cleared.has(edge.cell) && !cleared.has(edge.neighbor)) continue;
+    window.clearTimeout(edge.fadeTimeout);
+    edge.path.classList.add("clear-fade");
+    edge.fadeTimeout = window.setTimeout(() => edge.path.classList.remove("clear-fade"), 2600);
   }
 
   if (gained > 0) {
@@ -2118,6 +2553,63 @@ function animateClear(completed, gained) {
     void elements.scoreBurst.offsetWidth;
     elements.scoreBurst.classList.add("show");
   }
+}
+
+// Moves a tray piece to its board cells while growing it to board size.
+// Returns a function that stops the motion without calling onDone.
+function animateAiMove(item, shape, originQ, originR, onDone) {
+  const trayPiece = elements.tray.querySelector(`[data-uid="${item.uid}"] .piece`);
+  const [q, r] = shape.cells[0];
+  const target = boardCells.get(hexKey(originQ + q, originR + r));
+  if (!trayPiece || !target) {
+    onDone();
+    return () => {};
+  }
+  const layer = elements.dragLayer;
+  const from = trayPiece.getBoundingClientRect();
+  const to = target.getBoundingClientRect();
+  const piece = makePiece(shape, to.width);
+  const width = parseFloat(piece.style.width);
+  const height = parseFloat(piece.style.height);
+  const cellLeft = parseFloat(piece.firstChild.style.left);
+  const cellTop = parseFloat(piece.firstChild.style.top);
+  const slot = trayPiece.parentElement;
+  let timeout;
+  layer.replaceChildren(...piece.childNodes);
+  layer.style.width = `${width}px`;
+  layer.style.height = `${height}px`;
+  layer.style.transformOrigin = "top left";
+  layer.style.transform = `translate3d(${from.left}px, ${from.top}px, 0) scale(${from.width / width}, ${from.height / height})`;
+  layer.classList.add("active");
+  slot.classList.add("dragging");
+  void layer.offsetWidth;
+  layer.classList.add("ai-moving");
+
+  function moveToTarget() {
+    const bounds = target.getBoundingClientRect();
+    const scale = bounds.width / to.width;
+    const left = bounds.left - cellLeft * scale;
+    const top = bounds.top - cellTop * scale;
+    layer.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${scale})`;
+    // A new target starts a new CSS transition, so wait for that motion to finish.
+    window.clearTimeout(timeout);
+    timeout = window.setTimeout(() => {
+      stop();
+      onDone();
+    }, 440);
+  }
+
+  function stop() {
+    window.clearTimeout(timeout);
+    window.removeEventListener("resize", moveToTarget);
+    slot.classList.remove("dragging");
+    layer.classList.remove("active", "ai-moving");
+    layer.style.transformOrigin = "";
+    layer.replaceChildren();
+  }
+  window.addEventListener("resize", moveToTarget);
+  moveToTarget();
+  return stop;
 }
 
 function showModal(title, text, buttonText, options = {}) {
@@ -2150,6 +2642,7 @@ Object.assign(window.GenericBlockGame, {
   renderPreview,
   clearPreview,
   animateClear,
+  animateAiMove,
   showModal,
   hideModal,
 });
@@ -2170,12 +2663,18 @@ const {
   makePiece,
   buildHexGrid,
   buildSquareGrid,
+  APP_VERSION,
+  CHANGELOG,
+  loadSeenVersion,
+  saveSeenVersion,
 } = window.GenericBlockGame;
 
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
+const aiDifficultySetting = document.querySelector("#aiDifficultySetting");
+const aiDifficultyRow = document.querySelector("#aiDifficultyRow");
 const boardTypeSetting = document.querySelector("#boardTypeSetting");
 const boardSettingsContent = document.querySelector("#boardSettingsContent");
 const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetting");
@@ -2201,9 +2700,15 @@ const weightInput = document.querySelector("#customPieceWeight");
 const message = document.querySelector("#designerMessage");
 const clearButton = document.querySelector("#clearDesignerButton");
 const saveButton = document.querySelector("#saveCustomPieceButton");
+const appVersion = document.querySelector("#appVersion");
+const changelogModal = document.querySelector("#changelogModal");
+const changelogVersion = document.querySelector("#changelogVersion");
+const changelogList = document.querySelector("#changelogList");
+const changelogButton = document.querySelector("#changelogButton");
 
 let preferences = loadPreferences();
 let selectedCells = new Set();
+let editorMode = null;
 let callbacks = {};
 let pendingReset = null;
 
@@ -2306,7 +2811,8 @@ function buildEditor() {
     button.type = "button";
     button.dataset.cell = key;
     button.setAttribute("aria-label", `Editor ${square ? "square" : "hex"} ${q}, ${r}`);
-    button.setAttribute("aria-pressed", "false");
+    button.classList.toggle("selected", selectedCells.has(key));
+    button.setAttribute("aria-pressed", String(selectedCells.has(key)));
     button.addEventListener("click", () => {
       selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
       button.classList.toggle("selected", selectedCells.has(key));
@@ -2414,7 +2920,10 @@ function renderSettings() {
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
   traySizeSetting.value = String(preferences.traySize);
   updateBoardSizeControl(preferences.boardSide);
-  clearEditor();
+  if (editorMode !== mode) {
+    clearEditor();
+    editorMode = mode;
+  }
   buildEditor();
   renderPieceList();
 }
@@ -2455,12 +2964,25 @@ function updateBoardSizeControl(size) {
 
 function updateGameModeControl() {
   const square = getBoardMode() === "square";
+  aiDifficultyRow.hidden = square || !preferences.aiEnabled;
+  updateAiDifficultyControl();
   gameModeSetting.querySelector('[data-mode="two-player"]').hidden = square;
-  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 3);
-  const mode = preferences.twoPlayerEnabled ? "two-player" : preferences.timeTrialEnabled ? "timed" : "unlimited";
-  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player"].indexOf(mode));
+  gameModeSetting.querySelector('[data-mode="ai"]').hidden = square;
+  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 4);
+  const mode = preferences.aiEnabled ? "ai" : preferences.twoPlayerEnabled ? "two-player"
+    : preferences.timeTrialEnabled ? "timed" : "unlimited";
+  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player", "ai"].indexOf(mode));
   gameModeSetting.querySelectorAll("button").forEach(button => {
     const selected = button.dataset.mode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function updateAiDifficultyControl() {
+  aiDifficultySetting.style.setProperty("--selected-index", ["easy", "medium", "hard"].indexOf(preferences.aiDifficulty));
+  aiDifficultySetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.difficulty === preferences.aiDifficulty;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
@@ -2486,14 +3008,47 @@ function confirmReset() {
   } else if (pendingReset === "settings") {
     resetAllPreferences();
     callbacks.onResetSettings?.();
+    clearEditor();
     renderSettings();
   }
   closeResetConfirmation();
 }
 
+// The seen version is saved only once the player closes the changelog.
+function showChangelogIfUpdated() {
+  if (loadSeenVersion() === APP_VERSION) {
+    saveSeenVersion();
+    return;
+  }
+  openChangelog();
+}
+
+function openChangelog() {
+  const entry = CHANGELOG.find(item => item.version === APP_VERSION);
+  changelogVersion.textContent = `Version ${APP_VERSION}`;
+  changelogList.replaceChildren(...(entry?.changes || []).map(change => {
+    const item = document.createElement("li");
+    item.textContent = change;
+    return item;
+  }));
+  changelogModal.classList.add("is-open");
+  changelogButton.focus();
+}
+
+function closeChangelog() {
+  changelogModal.classList.remove("is-open");
+  saveSeenVersion();
+  if (panel.classList.contains("is-open")) appVersion.focus();
+  callbacks.onChangelogClose?.();
+}
+
 function initSettings(options) {
   callbacks = options;
   buildEditor();
+  appVersion.textContent = `v${APP_VERSION}`;
+  appVersion.addEventListener("click", openChangelog);
+  changelogButton.addEventListener("click", closeChangelog);
+  showChangelogIfUpdated();
   boardTypeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-board-mode]");
     if (!button || button.dataset.boardMode === getBoardMode()) return;
@@ -2516,11 +3071,19 @@ function initSettings(options) {
   });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");
-    if (!button || (button.dataset.mode === "two-player" && getBoardMode() === "square")) return;
+    if (!button || button.hidden) return;
     preferences.timeTrialEnabled = button.dataset.mode === "timed";
     preferences.twoPlayerEnabled = button.dataset.mode === "two-player";
+    preferences.aiEnabled = button.dataset.mode === "ai";
     updateGameModeControl();
     timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
+    saveAndNotify();
+  });
+  aiDifficultySetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-difficulty]");
+    if (!button || aiDifficultyRow.hidden || button.dataset.difficulty === preferences.aiDifficulty) return;
+    preferences.aiDifficulty = button.dataset.difficulty;
+    updateAiDifficultyControl();
     saveAndNotify();
   });
   timeTrialDurationSetting.addEventListener("change", () => {
@@ -2604,7 +3167,6 @@ const {
   setBoardMode,
   getBoardSide,
   getBoardDimensions,
-  boardPoint,
   boardCellAt,
   placementDistance,
   rotationCount,
@@ -2621,8 +3183,11 @@ const {
   createEmptyBoard,
   createMatch,
   cloneMatch,
+  matchPlayerColor,
+  scorePlacement,
   recordMatchPlacement,
   endMatchTurn,
+  chooseAiMove,
   fillShape,
   findCompletedCells,
   loadBestScore,
@@ -2634,6 +3199,7 @@ const {
   saveTimedBestScore,
   saveGame,
   animateClear,
+  animateAiMove,
   buildBoard,
   clearPreview,
   elements,
@@ -2649,7 +3215,7 @@ const {
   isDefaultTimedPreferences,
 } = window.GenericBlockGame;
 
-let activeTimed = loadPreferences().timeTrialEnabled && !loadPreferences().twoPlayerEnabled;
+let activeTimed = loadPreferences().timeTrialEnabled;
 let state = createInitialState(activeTimed);
 let bestScore = loadBestScore();
 let modifiedBestScore = loadModifiedBestScore();
@@ -2658,14 +3224,58 @@ let timedModifiedBestScore = loadTimedBestScore(true);
 let drag = null;
 let timerInterval = null;
 let lastTimerTick = 0;
-let pendingClearCells = null;
+let placementView = null;
 let placementPending = false;
 let boardChangeId = 0;
+let aiTimeout = null;
+let stopAiFlight = () => {};
 let modalAction = startNewGame;
 
 function hideModal() {
   hideModalView();
   modalAction = startNewGame;
+  scheduleAiMove();
+}
+
+function isAiTurn() {
+  return Boolean(state.aiOpponent && state.match?.player === 1 && !state.gameOver);
+}
+
+function aiCanMove() {
+  return isAiTurn() && !placementPending && !document.hidden
+    && !elements.settingsPanel.classList.contains("is-open")
+    && !elements.modal.classList.contains("is-open")
+    && !elements.changelogModal.classList.contains("is-open");
+}
+
+function scheduleAiMove() {
+  window.clearTimeout(aiTimeout);
+  aiTimeout = null;
+  if (!aiCanMove()) return;
+  const changeId = boardChangeId;
+  aiTimeout = window.setTimeout(() => {
+    aiTimeout = null;
+    if (changeId !== boardChangeId || !aiCanMove()) return;
+    const move = chooseAiMove(state, loadPreferences().aiDifficulty);
+    if (!move) { passTurn(true); return; }
+    const item = state.tray.find(piece => piece.uid === move.uid && !piece.used);
+    if (!item) return;
+    const shape = rotateShape(shapeById(item.shapeId), item.rotation || 0);
+    if (!canPlace(state.board, shape, move.q, move.r)) return;
+    // Pending blocks other input and AI scheduling while the piece is moving.
+    placementPending = true;
+    stopAiFlight = animateAiMove(item, shape, move.q, move.r, () => {
+      stopAiFlight = () => {};
+      if (changeId !== boardChangeId) return;
+      placementPending = false;
+      placePiece(item, shape, move.q, move.r);
+    });
+  }, 400);
+}
+
+function cancelAiFlight() {
+  stopAiFlight();
+  stopAiFlight = () => {};
 }
 
 // Creates all mutable values for a completely new game.
@@ -2680,7 +3290,8 @@ function createInitialState(timed = activeTimed) {
     tray: [],
     history: [],
     gameOver: false,
-    match: preferences.twoPlayerEnabled ? createMatch() : null,
+    match: preferences.twoPlayerEnabled || preferences.aiEnabled ? createMatch() : null,
+    aiOpponent: preferences.aiEnabled,
     timedMode: timed,
     timerStarted: false,
     timeRemainingMs: timed ? preferences.timeTrialSeconds * 1000 : null,
@@ -2689,15 +3300,7 @@ function createInitialState(timed = activeTimed) {
 
 // Supplies renderGame with the current board-aware placement check.
 function isShapePlaceable(shape) {
-  if (!pendingClearCells) {
-    return canPlaceAnywhere(state.board, shape);
-  }
-
-  // During a clear animation, tray availability should reflect the board
-  // after those cells disappear, avoiding a brief incorrect gray state.
-  const projectedBoard = cloneBoard(state.board);
-  clearCells(projectedBoard, pendingClearCells);
-  return canPlaceAnywhere(projectedBoard, shape);
+  return canPlaceAnywhere(state.board, shape);
 }
 
 function getPreviewClearCells(shape, originQ, originR) {
@@ -2708,9 +3311,10 @@ function getPreviewClearCells(shape, originQ, originR) {
 }
 
 function render() {
-  renderGame(state, activeBestScore(), activeBestScoreLabel(), isShapePlaceable, beginDrag);
+  renderGame(placementView || state, activeBestScore(), activeBestScoreLabel(), isShapePlaceable, beginDrag);
   applyPreferences();
   renderTimer();
+  scheduleAiMove();
 }
 
 function settingsAreModified() {
@@ -2742,21 +3346,30 @@ function applyPreferences() {
   CONFIG.drag.maxExtraLiftPx = preferences.dragMovingOffset;
   CONFIG.drag.maxHorizontalOffsetPx = preferences.dragHorizontalOffset;
   CONFIG.drag.invalidMoveResistance = Math.max(0, preferences.snapOverlapMultiplier - 1);
+  const view = placementView || state;
   document.documentElement.style.setProperty("--piece-hue",
-    state.match ? (state.match.player === 0 ? 0 : 212) : preferences.pieceHue);
+    view.match ? (matchPlayerColor(view, view.match.player) === "red" ? 0 : 212) : preferences.pieceHue);
   elements.passButton.hidden = !state.match;
-  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver;
+  elements.passButton.disabled = placementPending || Boolean(drag) || state.gameOver || isAiTurn();
+  elements.undoButton.disabled = !canUndo();
+}
+
+function canUndo() {
+  return loadPreferences().undoEnabled && state.history.length > 0
+    && !placementPending && !drag && !isAiTurn()
+    && !(activeTimed && state.timerStarted && state.timeRemainingMs <= 0);
 }
 
 // Any setting change begins a clean run under the newly selected rules.
 function restartForSettingsChange() {
   const preferences = loadPreferences();
   cleanupDrag();
+  cancelAiFlight();
   boardChangeId += 1;
   placementPending = false;
-  pendingClearCells = null;
+  placementView = null;
   stopTimer();
-  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
+  activeTimed = preferences.timeTrialEnabled;
   state = createInitialState(activeTimed);
   hideModal();
   buildBoard(preferences.boardSide);
@@ -2773,22 +3386,22 @@ function refreshBestScores() {
 function switchBoardMode(mode) {
   if (mode === getBoardMode()) return;
   cleanupDrag();
+  cancelAiFlight();
   stopTimer();
   boardChangeId += 1;
-  if (pendingClearCells) clearCells(state.board, pendingClearCells);
-  pendingClearCells = null;
+  placementView = null;
   placementPending = false;
   if (state.tray.length) saveGame(state);
   setBoardMode(mode);
   refreshBestScores();
   const preferences = loadPreferences();
-  activeTimed = preferences.timeTrialEnabled && !preferences.twoPlayerEnabled;
+  activeTimed = preferences.timeTrialEnabled;
   state = createInitialState(activeTimed);
   restoreCurrentGame(false);
 }
 
 // A new tray also becomes the earliest point that Undo may return to.
-function deliverTray() {
+function prepareTray() {
   const traySize = loadPreferences().traySize;
   state.tray = Array.from({ length: traySize }, (_, index) => ({
     uid: `${Date.now()}-${index}-${Math.random().toString(36).slice(2)}`,
@@ -2799,9 +3412,17 @@ function deliverTray() {
   ensureTrayHasPlaceablePiece();
   state.history = [];
   state.restoredTrayItemUid = null;
-  render();
+}
+
+function showNewTray() {
   elements.tray.classList.add("new-tray");
   window.setTimeout(() => elements.tray.classList.remove("new-tray"), 360);
+}
+
+function deliverTray() {
+  prepareTray();
+  render();
+  showNewTray();
   saveGame(state);
   checkGameOver();
 }
@@ -2851,6 +3472,8 @@ function snapshot() {
 }
 
 function placePiece(item, shape, originQ, originR) {
+  if (state.gameOver || placementPending || expireTimeTrialIfNeeded()) return;
+  if (item.used || !canPlace(state.board, shape, originQ, originR)) return;
   placementPending = true;
   const changeId = boardChangeId;
   if (activeTimed && !state.timerStarted) {
@@ -2863,58 +3486,44 @@ function placePiece(item, shape, originQ, originR) {
 
   const completed = findCompletedCells(state.board);
   const matchPoints = state.match ? recordMatchPlacement(state.match, completed) : 0;
-  if (completed.zoneCount) {
-    state.streak += 1;
-
-    // Each line or chunk is worth one point per cell. Multiple clears multiply
-    // the clear, while consecutive scoring moves increase the streak.
-    const gained = state.match ? matchPoints : completed.pointValue * completed.zoneCount * state.streak;
-    state.score += gained;
-    // Show the entire newly placed shape before its completed cells animate out.
-    pendingClearCells = completed.cells;
-    render();
-    animateClear(completed.cells, gained);
-    // Keep filled cells visible until their removal animation completes.
-    window.setTimeout(() => {
-      if (changeId !== boardChangeId) return;
-      clearCells(state.board, completed.cells);
-      pendingClearCells = null;
-      finishPlacement();
-    }, 280);
-  } else {
-    state.streak = 0;
-    finishPlacement();
+  const scored = scorePlacement(state.streak, completed);
+  state.streak = scored.streak;
+  const gained = state.match ? matchPoints : scored.points;
+  state.score += gained;
+  const trayFinished = state.tray.every(piece => piece.used);
+  // Keep the old board and tray only for display. Saves contain the whole move.
+  if (completed.zoneCount || trayFinished) {
+    placementView = { ...state, board: cloneBoard(state.board),
+      tray: state.tray.map(piece => ({ ...piece })), match: cloneMatch(state.match) };
   }
-
+  clearCells(state.board, completed.cells);
+  if (trayFinished) {
+    if (state.match) endMatchTurn(state.match);
+    prepareTray();
+  }
+  checkGameOver(false);
   updateBestScore();
-  elements.score.textContent = state.score.toLocaleString();
-  elements.bestScore.textContent = activeBestScore().toLocaleString();
-  elements.bestScoreLabel.textContent = activeBestScoreLabel();
+  saveGame(state);
+  render();
+  if (completed.zoneCount) animateClear(completed.cells, gained);
+  const delay = (completed.zoneCount ? 280 : 0) + (trayFinished ? 80 : 0);
+  if (delay) {
+    window.setTimeout(() => { if (changeId === boardChangeId) finishPlacement(trayFinished); }, delay);
+  } else finishPlacement();
 }
 
-// Refresh placement checks only after any clear animation has completed.
-function finishPlacement() {
+// Ending an effect never changes the saved board, tray, or player.
+function finishPlacement(trayFinished = false) {
+  placementView = null;
+  placementPending = false;
   render();
-  saveGame(state);
-  if (state.gameOver) { placementPending = false; return; }
-  if (state.tray.every(piece => piece.used)) {
-    const changeId = boardChangeId;
-    window.setTimeout(() => {
-      if (changeId !== boardChangeId) return;
-      placementPending = false;
-      if (state.match) endMatchTurn(state.match);
-      deliverTray();
-    }, 80);
-  } else {
-    placementPending = false;
-    applyPreferences();
-    checkGameOver();
-  }
+  if (trayFinished) showNewTray();
+  if (state.gameOver) showCurrentResult();
 }
 
 // Undo history is discarded whenever a new tray is delivered.
 function undo() {
-  if (placementPending || drag) return;
+  if (expireTimeTrialIfNeeded() || !canUndo()) return;
   const previous = state.history.pop();
   if (!previous) return;
 
@@ -2964,7 +3573,7 @@ function updateBestScore() {
   }
 }
 
-function checkGameOver() {
+function checkGameOver(showResult = true) {
   if (state.match) return;
   const remaining = state.tray.filter(item => !item.used);
   const noMovesRemain = remaining.length
@@ -2977,29 +3586,24 @@ function checkGameOver() {
 
   state.gameOver = true;
   stopTimer();
-  showModal(
-    "No more moves",
-    `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
-    "Play again",
-    {
-      gameOver: true,
-      score: state.score,
-      showUndo: loadPreferences().undoEnabled && state.history.length > 0,
-    },
-  );
+  if (showResult) showCurrentResult();
   saveGame(state);
 }
 
 function showMatchResult() {
-  const [red, blue] = state.match.scores;
-  const result = red === blue ? "It's a draw" : red > blue ? "Red wins" : "Blue wins";
+  const [firstScore, secondScore] = state.match.scores;
+  const firstName = state.aiOpponent ? "You" : "Red";
+  const secondName = state.aiOpponent ? "AI" : "Blue";
+  const result = firstScore === secondScore ? "It's a draw" : firstScore > secondScore
+    ? (state.aiOpponent ? "You win" : "Red wins") : `${secondName} wins`;
   modalAction = startNewGame;
-  showModal(result, `Red: ${red.toLocaleString()} points. Blue: ${blue.toLocaleString()} points.`,
+  showModal(result, `${firstName}: ${firstScore.toLocaleString()} points. ${secondName}: ${secondScore.toLocaleString()} points.`,
     "Play again", { gameOver: true, match: true });
 }
 
-function passTurn() {
+function passTurn(fromAi = false) {
   if (!state.match || state.gameOver || placementPending || drag) return;
+  if (isAiTurn() && !fromAi) return;
   hideModal();
   state.gameOver = endMatchTurn(state.match, true);
   state.history = [];
@@ -3013,14 +3617,14 @@ function passTurn() {
 }
 
 function requestPass() {
-  if (!state.match || state.gameOver || placementPending || drag) return;
+  if (!state.match || state.gameOver || placementPending || drag || isAiTurn()) return;
   const canStillPlace = state.tray.some(item => !item.used
     && isShapePlaceable(rotateShape(shapeById(item.shapeId), item.rotation || 0)));
   if (!canStillPlace) {
     passTurn();
     return;
   }
-  const player = state.match.player === 0 ? "Red" : "Blue";
+  const player = matchPlayerColor(state, state.match.player) === "red" ? "Red" : "Blue";
   modalAction = passTurn;
   const endsMatch = state.match.consecutivePasses === 1;
   showModal(`${player}, pass?`,
@@ -3044,6 +3648,7 @@ function renderTimer() {
 
 function startTimer() {
   stopTimer();
+  if (expireTimeTrialIfNeeded()) return;
   if (!activeTimed || !state.timerStarted || state.gameOver) {
     renderTimer();
     return;
@@ -3051,9 +3656,7 @@ function startTimer() {
 
   lastTimerTick = Date.now();
   timerInterval = window.setInterval(() => {
-    const now = Date.now();
-    state.timeRemainingMs = Math.max(0, state.timeRemainingMs - (now - lastTimerTick));
-    lastTimerTick = now;
+    updateRemainingTime();
     renderTimer();
 
     if (state.timeRemainingMs <= 0) {
@@ -3064,12 +3667,23 @@ function startTimer() {
   }, 250);
 }
 
+function updateRemainingTime() {
+  if (timerInterval === null) return;
+  const now = Date.now();
+  state.timeRemainingMs = Math.max(0, state.timeRemainingMs - (now - lastTimerTick));
+  lastTimerTick = now;
+}
+
+function expireTimeTrialIfNeeded() {
+  updateRemainingTime();
+  if (!activeTimed || !state.timerStarted || state.timeRemainingMs > 0) return false;
+  if (!state.gameOver) finishTimeTrial();
+  return true;
+}
+
 function stopTimer() {
-  if (timerInterval) {
-    state.timeRemainingMs = Math.max(
-      0,
-      state.timeRemainingMs - (Date.now() - lastTimerTick),
-    );
+  updateRemainingTime();
+  if (timerInterval !== null) {
     window.clearInterval(timerInterval);
   }
   timerInterval = null;
@@ -3078,6 +3692,9 @@ function stopTimer() {
 
 function finishTimeTrial() {
   stopTimer();
+  boardChangeId += 1;
+  placementView = null;
+  placementPending = false;
   cleanupDrag();
   state.timeRemainingMs = 0;
   state.gameOver = true;
@@ -3094,7 +3711,7 @@ function finishTimeTrial() {
 
 // Starts a drag from the entire large tray slot, not just the colored cells.
 function beginDrag(event) {
-  if (state.gameOver || placementPending) return;
+  if (state.gameOver || placementPending || isAiTurn() || expireTimeTrialIfNeeded()) return;
   if (drag || event.isPrimary === false) return;
   if (event.button !== undefined && event.button !== 0) return;
   if (elements.modal.classList.contains("is-open")) return;
@@ -3175,13 +3792,6 @@ function liftForPointer(pointerY) {
     : lift;
 }
 
-function snapDragToCell(boardRect) {
-  const point = boardPoint(state.board, drag.originQ, drag.originR, drag.cellSize);
-  const left = boardRect.left + boardRect.width / 2 + point.x - drag.anchorX;
-  const top = boardRect.top + boardRect.height / 2 + point.y - drag.anchorY;
-  elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
-}
-
 function updateDrag(event) {
   if (!drag || event.pointerId !== drag.pointerId) return;
   event.preventDefault();
@@ -3204,7 +3814,7 @@ function updateDrag(event) {
   drag.layerTop = top;
   elements.dragLayer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
 
-  // Snap the anchor to a cell center in the current grid.
+  // Snap only the board preview. The dragged piece keeps following the pointer.
   const boardRect = elements.board.getBoundingClientRect();
   const anchorX = left + drag.anchorX - boardRect.left - boardRect.width / 2;
   const anchorY = top + drag.anchorY - boardRect.top - boardRect.height / 2;
@@ -3224,7 +3834,6 @@ function updateDrag(event) {
     const releaseDistance = 0.5 + resistance;
 
     if (distance < releaseDistance) {
-      snapDragToCell(boardRect);
       drag.previewClearCells = getPreviewClearCells(drag.shape, drag.originQ, drag.originR);
       elements.dragLayer.classList.remove("invalid");
       renderPreview(drag);
@@ -3240,9 +3849,6 @@ function updateDrag(event) {
     : null;
 
   elements.dragLayer.classList.toggle("invalid", !drag.valid);
-  if (drag.valid) {
-    snapDragToCell(boardRect);
-  }
   renderPreview(drag);
 }
 
@@ -3316,7 +3922,7 @@ function openResetModal() {
     activeTimed ? "Restart time trial?" : "Restart game?",
     activeTimed
       ? "Your timed board, score, and countdown will restart."
-      : state.match ? "Restart the board and both scores? Red will start."
+      : state.match ? `Restart the board and both scores? ${state.aiOpponent ? "You" : "Red"} will start.`
         : "Your current board and score will be replaced with a fresh game.",
     "Restart",
     { showCancel: true },
@@ -3325,6 +3931,8 @@ function openResetModal() {
 
 function startNewGame() {
   if (placementPending) return;
+  boardChangeId += 1;
+  window.clearTimeout(aiTimeout);
   cleanupDrag();
   stopTimer();
   hideModal();
@@ -3341,8 +3949,10 @@ function startNewGame() {
 }
 
 function resetGameState() {
+  cancelAiFlight();
+  boardChangeId += 1;
   placementPending = false;
-  pendingClearCells = null;
+  placementView = null;
   state = createInitialState(activeTimed);
   deliverTray();
 }
@@ -3392,6 +4002,7 @@ window.addEventListener("resize", () => {
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) cancelDrag();
+  scheduleAiMove();
 });
 
 // Prevent browser selection, native dragging, long-press menus, and right click.
@@ -3406,12 +4017,16 @@ if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) 
 initSettings({
   onChange: restartForSettingsChange,
   onBoardChange: switchBoardMode,
-  onClose: () => { if (state.gameOver) showCurrentResult(); },
+  onClose: () => {
+    if (state.gameOver) showCurrentResult();
+    else scheduleAiMove();
+  },
   onResetSettings: () => {
     resetSavedGames();
     restartForSettingsChange();
   },
   onAccessibilityChange: applyPreferences,
+  onChangelogClose: scheduleAiMove,
   onResetBest: () => {
     resetAllScores();
     refreshBestScores();
@@ -3428,14 +4043,14 @@ function showCurrentResult() {
     activeTimed && state.timeRemainingMs <= 0 ? "Time's up" : "No more moves",
     `${activeBestScoreLabel()}: ${activeBestScore().toLocaleString()}`,
     "Play again",
-    { gameOver: true, score: state.score, showUndo: loadPreferences().undoEnabled && state.history.length > 0 },
+    { gameOver: true, score: state.score, showUndo: canUndo() },
   );
 }
 
 // Each board restores its own saved game when its tab becomes active.
 function restoreCurrentGame(showWelcome) {
   const preferences = loadPreferences();
-  const savedState = loadGame(Boolean(preferences.twoPlayerEnabled));
+  const savedState = loadGame(preferences.aiEnabled ? "ai" : Boolean(preferences.twoPlayerEnabled));
   if (savedState?.tray?.length && savedState.timedMode === activeTimed
     && getBoardSide(savedState.board) === preferences.boardSide) {
     state = { ...createInitialState(activeTimed), ...savedState };
@@ -3452,8 +4067,8 @@ function restoreCurrentGame(showWelcome) {
     } else {
       hideModal();
       if (state.tray.every(item => item.used)) {
-        placementPending = true;
-        finishPlacement();
+        if (state.match) endMatchTurn(state.match);
+        deliverTray();
       }
       if (state.timerStarted) startTimer();
     }

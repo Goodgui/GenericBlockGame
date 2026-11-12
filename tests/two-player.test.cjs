@@ -13,7 +13,7 @@ function setup() {
       setItem: (key, value) => saved.set(key, value),
     },
   });
-  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "two-player.js", "storage.js"]) {
+  for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "storage.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
   return { game: context.window.GenericBlockGame, saved };

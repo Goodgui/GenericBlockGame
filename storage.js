@@ -1,5 +1,7 @@
 (function () {
-const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch } = window.GenericBlockGame;
+const { CONFIG, storageKeys, getBoardMode, createEmptyBoard, isValidMatch,
+  findCompletedCells, clearCells, scorePlacement } = window.GenericBlockGame;
+const SAVE_VERSION = 1;
 
 // Reads the saved top score. Missing or invalid values become zero.
 function loadBestScore(mode = getBoardMode()) {
@@ -34,11 +36,12 @@ function saveTimedBestScore(score, modified = false, mode = getBoardMode()) {
 function saveGame(state) {
   const saved = {
     ...state,
+    saveVersion: SAVE_VERSION,
     history: state.history.slice(-8),
   };
 
   const keys = storageKeys(state.board.type || "hex");
-  const key = state.match ? CONFIG.twoPlayerStorageKey : keys.storageKey;
+  const key = state.match ? (state.aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : keys.storageKey;
   localStorage.setItem(key, JSON.stringify(saved));
 }
 
@@ -54,12 +57,30 @@ function restoreBoard(board, mode) {
   return board ? { ...board, type: board.type || mode } : null;
 }
 
+// Old timer saves could include cells whose points were already awarded.
+// Repair only when the last move's score confirms that clear.
+function finishSavedClear(saved) {
+  if (saved.saveVersion !== undefined) return false;
+  const previous = saved.history?.at(-1);
+  const completed = findCompletedCells(saved.board);
+  const streak = saved.match ? saved.match.streaks[saved.match.player] : saved.streak;
+  if (!previous || !completed.zoneCount || !(streak > 0)) return false;
+  const scored = scorePlacement(streak - 1, completed);
+  if (!(scored.points > 0) || saved.score - previous.score !== scored.points) return false;
+  clearCells(saved.board, completed.cells);
+  return true;
+}
+
 // Restore each board's own game. Square mode never loads a match.
-function loadGame(twoPlayer = false, mode = getBoardMode()) {
+function loadGame(matchMode = false, mode = getBoardMode()) {
+  const twoPlayer = Boolean(matchMode);
+  const aiOpponent = matchMode === "ai";
   if (twoPlayer && mode !== "hex") return null;
   try {
-    const key = twoPlayer ? CONFIG.twoPlayerStorageKey : storageKeys(mode).storageKey;
+    const key = twoPlayer ? (aiOpponent ? CONFIG.aiStorageKey : CONFIG.twoPlayerStorageKey) : storageKeys(mode).storageKey;
     const saved = JSON.parse(localStorage.getItem(key));
+    if (saved?.saveVersion > SAVE_VERSION) return null;
+    if (Boolean(saved?.aiOpponent) !== aiOpponent) return null;
 
     // Keep games and Undo states saved before the pass rule changed.
     if (twoPlayer) {
@@ -84,6 +105,10 @@ function loadGame(twoPlayer = false, mode = getBoardMode()) {
 
     saved.board = board;
     for (const entry of saved.history || []) entry.board = restoreBoard(entry.board, mode);
+    if (finishSavedClear(saved)) {
+      saved.saveVersion = SAVE_VERSION;
+      saveGame(saved);
+    }
     return saved;
   } catch {
     return null;
@@ -100,7 +125,8 @@ function resetAllScores() {
 }
 
 function resetSavedGames() {
-  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey, CONFIG.twoPlayerStorageKey]) {
+  for (const key of [storageKeys("hex").storageKey, storageKeys("square").storageKey,
+    CONFIG.twoPlayerStorageKey, CONFIG.aiStorageKey]) {
     localStorage.setItem(key, "null");
   }
 }

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Seven hexagons with three blue cells at the lower left</title>
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#88a8ce"/>
+      <stop offset="1" stop-color="#52749c"/>
+    </linearGradient>
+    <polygon id="hex" points="0,-44 38.105,-22 38.105,22 0,44 -38.105,22 -38.105,-22"/>
+  </defs>
+  <g fill="#23272e" stroke="#a5b2c4" stroke-width="5" stroke-linejoin="round">
+    <use href="#hex" x="89.895" y="62"/>
+    <use href="#hex" x="166.105" y="62"/>
+    <use href="#hex" x="51.79" y="128" fill="url(#blue)"/>
+    <use href="#hex" x="128" y="128"/>
+    <use href="#hex" x="204.21" y="128"/>
+    <use href="#hex" x="89.895" y="194" fill="url(#blue)"/>
+    <use href="#hex" x="166.105" y="194" fill="url(#blue)"/>
+  </g>
+</svg>

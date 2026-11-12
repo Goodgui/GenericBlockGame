@@ -1,5 +1,9 @@
 (function () {
-const { CONFIG, storageKeys } = window.GenericBlockGame;
+const { CONFIG, storageKeys, APP_VERSION } = window.GenericBlockGame;
+// Checked before any settings are written, so a brand-new player is not shown a changelog.
+const firstVisit = [CONFIG.globalSettingsKey, CONFIG.boardModeKey,
+  storageKeys("hex").settingsKey, storageKeys("square").settingsKey]
+  .every(key => localStorage.getItem(key) === null);
 
 function getBoardMode() {
   return localStorage.getItem(CONFIG.boardModeKey) === "square" ? "square" : "hex";
@@ -25,6 +29,8 @@ function defaultModePreferences(mode = getBoardMode()) {
     boardSide: mode === "hex" ? 5 : 9,
     timeTrialEnabled: false,
     twoPlayerEnabled: false,
+    aiEnabled: false,
+    aiDifficulty: "hard",
     timeTrialSeconds: 180,
   };
 }
@@ -44,6 +50,25 @@ function readSettings(key) {
 
 function pickSettings(source, defaults) {
   return Object.fromEntries(Object.keys(defaults).map(key => [key, source[key] ?? defaults[key]]));
+}
+
+// The seen version is stored with the shared settings but is not itself a setting.
+function writeGlobalSettings(settings) {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  localStorage.setItem(CONFIG.globalSettingsKey,
+    JSON.stringify(typeof version === "string" ? { ...settings, version } : settings));
+}
+
+// Players from before versioning have saved settings but no seen version.
+function loadSeenVersion() {
+  const version = readSettings(CONFIG.globalSettingsKey)?.version;
+  if (typeof version === "string") return version;
+  return firstVisit ? APP_VERSION : null;
+}
+
+function saveSeenVersion(version = APP_VERSION) {
+  const settings = readSettings(CONFIG.globalSettingsKey) || defaultGlobalPreferences();
+  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify({ ...settings, version }));
 }
 
 function loadGlobalPreferences() {
@@ -72,7 +97,7 @@ function loadPreferences(mode = getBoardMode()) {
   const sizes = mode === "hex" ? [4, 5, 6] : [6, 9, 12];
   preferences.boardSide = Number(preferences.boardSide);
   if (!sizes.includes(preferences.boardSide)) preferences.boardSide = defaults.boardSide;
-  if (mode === "square") preferences.twoPlayerEnabled = false;
+  normalizeGameMode(preferences, mode);
   if (saved.boardSettingsVersion !== 1 && mode === "hex" && preferences.snapOverlapMultiplier === 2) {
     preferences.snapOverlapMultiplier = 1.5;
   }
@@ -87,14 +112,23 @@ function loadPreferences(mode = getBoardMode()) {
 
 function savePreferences(preferences, mode = getBoardMode()) {
   const modeSettings = pickSettings(preferences, defaultModePreferences(mode));
-  if (mode === "square") modeSettings.twoPlayerEnabled = false;
+  normalizeGameMode(modeSettings, mode);
   localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(modeSettings));
-  localStorage.setItem(CONFIG.globalSettingsKey,
-    JSON.stringify(pickSettings(preferences, defaultGlobalPreferences())));
+  writeGlobalSettings(pickSettings(preferences, defaultGlobalPreferences()));
+}
+
+function normalizeGameMode(preferences, mode) {
+  if (!["easy", "medium", "hard"].includes(preferences.aiDifficulty)) preferences.aiDifficulty = "hard";
+  if (mode === "square") {
+    preferences.twoPlayerEnabled = false;
+    preferences.aiEnabled = false;
+  }
+  if (preferences.aiEnabled) preferences.twoPlayerEnabled = false;
+  if (preferences.aiEnabled || preferences.twoPlayerEnabled) preferences.timeTrialEnabled = false;
 }
 
 function resetAllPreferences() {
-  localStorage.setItem(CONFIG.globalSettingsKey, JSON.stringify(defaultGlobalPreferences()));
+  writeGlobalSettings(defaultGlobalPreferences());
   for (const mode of ["hex", "square"]) {
     localStorage.setItem(storageKeys(mode).settingsKey, JSON.stringify(defaultModePreferences(mode)));
   }
@@ -130,6 +164,8 @@ Object.assign(window.GenericBlockGame, {
   defaultPreferences,
   loadPreferences,
   savePreferences,
+  loadSeenVersion,
+  saveSeenVersion,
   isDefaultPreferences,
   isDefaultTimedPreferences,
 });

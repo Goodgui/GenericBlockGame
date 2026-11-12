@@ -12,7 +12,7 @@ const context = vm.createContext({
     setItem: (key, value) => saved.set(key, value),
   },
 });
-for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "storage.js"]) {
+for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "storage.js"]) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
 }
 const game = context.window.GenericBlockGame;
@@ -116,6 +116,51 @@ test("fixed seven-cell groups never overlap and only those groups clear", () => 
   for (const [q, r] of [[0,0], ...neighbors]) offGroup.cells[game.hexKey(q + 1, r)] = 1;
   assert.equal(game.findCompletedCells(offGroup).zoneCount, 0);
 });
+
+for (const [side, outerSize, innerCount, covered] of [[4, 5, 1, 37], [6, 6, 7, 85]]) {
+  test(`size ${side} has six separate outer groups of ${outerSize}`, () => {
+    const board = game.createEmptyBoard(side);
+    const chunks = game.boardChunks(board);
+    const outer = chunks.filter(chunk => chunk.cells.length === outerSize);
+    assert.equal(outer.length, 6);
+    assert.equal(chunks.filter(chunk => chunk.cells.length === 7).length, innerCount);
+    const allCells = chunks.flatMap(chunk => chunk.cells);
+    assert.equal(allCells.length, covered);
+    assert.equal(new Set(allCells).size, covered, "Groups overlap");
+    for (const chunk of chunks) {
+      assert.ok(chunk.cells.every(key => Object.hasOwn(board.cells, key)));
+    }
+    for (const chunk of outer) {
+      assert.ok(chunk.cells.every(key => game.hexDistance(...key.split(",").map(Number)) >= side - 2));
+      assert.ok(chunk.cells.some(key => game.hexDistance(...key.split(",").map(Number)) === side - 1));
+      const trial = game.cloneBoard(board);
+      for (const key of chunk.cells) trial.cells[key] = 1;
+      const completed = game.findCompletedCells(trial);
+      assert.equal(completed.zoneCount, 1);
+      assert.equal(completed.pointValue, outerSize);
+      assert.equal(game.scorePlacement(0, completed).points, outerSize);
+      assert.deepEqual([...completed.cells].sort(), [...chunk.cells].sort());
+      game.clearCells(trial, completed.cells);
+      assert.ok(Object.values(trial.cells).every(value => value === 0));
+      const rotated = chunk.cells.map(key => {
+        const [q, r] = key.split(",").map(Number);
+        return game.hexKey(-r, q + r);
+      }).sort().join("|");
+      assert.ok(outer.some(other => [...other.cells].sort().join("|") === rotated), "Outer groups lack six-way symmetry");
+    }
+  });
+
+  test(`size ${side} only clears a full outlined outer group`, () => {
+    const board = game.createEmptyBoard(side);
+    const outer = game.boardChunks(board).find(chunk => chunk.cells.length === outerSize);
+    assert.ok(outer, "Missing outer group");
+    for (const missing of outer.cells) {
+      const trial = game.cloneBoard(board);
+      for (const key of outer.cells) if (key !== missing) trial.cells[key] = 1;
+      assert.equal(game.findCompletedCells(trial).zoneCount, 0);
+    }
+  });
+}
 
 test("a line and a group count together and clear shared cells once", () => {
   const board = game.createEmptyBoard();

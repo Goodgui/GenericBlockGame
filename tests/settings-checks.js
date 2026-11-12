@@ -52,7 +52,8 @@ runButton.addEventListener("click", async () => {
   runButton.disabled = true;
   results.replaceChildren();
   document.querySelector("#summary").textContent = "Running checks.";
-  const keys = new Set([api.CONFIG.globalSettingsKey, api.CONFIG.boardModeKey, api.CONFIG.twoPlayerStorageKey]);
+  const keys = new Set([api.CONFIG.globalSettingsKey, api.CONFIG.boardModeKey,
+    api.CONFIG.twoPlayerStorageKey, api.CONFIG.aiStorageKey]);
   for (const mode of ["hex", "square"]) {
     const storage = api.storageKeys(mode);
     for (const key of ["settingsKey", "storageKey", "bestScoreKey", "modifiedBestScoreKey", "timedBestScoreKey", "timedModifiedBestScoreKey"]) keys.add(storage[key]);
@@ -69,6 +70,14 @@ runButton.addEventListener("click", async () => {
       assert(field("dragMovingOffsetSetting").value === "180", "Wrong vertical offset");
       assert(field("dragHorizontalOffsetSetting").value === "170", "Wrong horizontal offset");
       assert(field("snapOverlapSetting").value === "1.5", "Wrong Hex snap margin");
+    });
+    await check("closing Settings keeps an unfinished custom piece", async () => {
+      for (const key of ["-2,0", "-1,0"]) doc().querySelector(`#shapeEditor [data-cell="${key}"]`).click();
+      field("customPieceName").value = "Unfinished piece";
+      click("settingsCloseButton"); click("settingsButton");
+      assert(field("customPieceName").value === "Unfinished piece", "Closing Settings lost the piece name");
+      assert(doc().querySelectorAll("#shapeEditor .selected").length === 2, "Closing Settings lost the selected cells");
+      click("clearDesignerButton");
     });
     await check("tabs, General, Accessibility, and Reset have the requested order", async () => {
       const headings = [...doc().querySelectorAll(".settings-section h3")].map(node => node.textContent).join("|");
@@ -141,7 +150,7 @@ runButton.addEventListener("click", async () => {
       assert(doc().querySelectorAll(".cell.filled").length === 8, "Square game did not return");
       click("settingsCloseButton");
       await loadFrame();
-      assert(field("boardLabel").textContent === "Square" && doc().querySelectorAll(".cell.filled").length === 8, "Square reload failed");
+      assert(doc().body.classList.contains("square-mode") && doc().querySelectorAll(".cell.filled").length === 8, "Square reload failed");
     });
     await check("Reset top score clears both boards", async () => {
       for (const mode of ["hex", "square"]) api.saveBestScore(99, mode);

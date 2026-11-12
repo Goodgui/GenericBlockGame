@@ -11,12 +11,18 @@ const {
   makePiece,
   buildHexGrid,
   buildSquareGrid,
+  APP_VERSION,
+  CHANGELOG,
+  loadSeenVersion,
+  saveSeenVersion,
 } = window.GenericBlockGame;
 
 const panel = document.querySelector("#settingsPanel");
 const closeButton = document.querySelector("#settingsCloseButton");
 const undoSetting = document.querySelector("#undoSetting");
 const gameModeSetting = document.querySelector("#gameModeSetting");
+const aiDifficultySetting = document.querySelector("#aiDifficultySetting");
+const aiDifficultyRow = document.querySelector("#aiDifficultyRow");
 const boardTypeSetting = document.querySelector("#boardTypeSetting");
 const boardSettingsContent = document.querySelector("#boardSettingsContent");
 const timeTrialDurationSetting = document.querySelector("#timeTrialDurationSetting");
@@ -42,9 +48,15 @@ const weightInput = document.querySelector("#customPieceWeight");
 const message = document.querySelector("#designerMessage");
 const clearButton = document.querySelector("#clearDesignerButton");
 const saveButton = document.querySelector("#saveCustomPieceButton");
+const appVersion = document.querySelector("#appVersion");
+const changelogModal = document.querySelector("#changelogModal");
+const changelogVersion = document.querySelector("#changelogVersion");
+const changelogList = document.querySelector("#changelogList");
+const changelogButton = document.querySelector("#changelogButton");
 
 let preferences = loadPreferences();
 let selectedCells = new Set();
+let editorMode = null;
 let callbacks = {};
 let pendingReset = null;
 
@@ -147,7 +159,8 @@ function buildEditor() {
     button.type = "button";
     button.dataset.cell = key;
     button.setAttribute("aria-label", `Editor ${square ? "square" : "hex"} ${q}, ${r}`);
-    button.setAttribute("aria-pressed", "false");
+    button.classList.toggle("selected", selectedCells.has(key));
+    button.setAttribute("aria-pressed", String(selectedCells.has(key)));
     button.addEventListener("click", () => {
       selectedCells.has(key) ? selectedCells.delete(key) : selectedCells.add(key);
       button.classList.toggle("selected", selectedCells.has(key));
@@ -255,7 +268,10 @@ function renderSettings() {
   snapOverlapSetting.value = Number(preferences.snapOverlapMultiplier).toFixed(1);
   traySizeSetting.value = String(preferences.traySize);
   updateBoardSizeControl(preferences.boardSide);
-  clearEditor();
+  if (editorMode !== mode) {
+    clearEditor();
+    editorMode = mode;
+  }
   buildEditor();
   renderPieceList();
 }
@@ -296,12 +312,25 @@ function updateBoardSizeControl(size) {
 
 function updateGameModeControl() {
   const square = getBoardMode() === "square";
+  aiDifficultyRow.hidden = square || !preferences.aiEnabled;
+  updateAiDifficultyControl();
   gameModeSetting.querySelector('[data-mode="two-player"]').hidden = square;
-  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 3);
-  const mode = preferences.twoPlayerEnabled ? "two-player" : preferences.timeTrialEnabled ? "timed" : "unlimited";
-  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player"].indexOf(mode));
+  gameModeSetting.querySelector('[data-mode="ai"]').hidden = square;
+  gameModeSetting.style.setProperty("--segment-count", square ? 2 : 4);
+  const mode = preferences.aiEnabled ? "ai" : preferences.twoPlayerEnabled ? "two-player"
+    : preferences.timeTrialEnabled ? "timed" : "unlimited";
+  gameModeSetting.style.setProperty("--selected-index", ["unlimited", "timed", "two-player", "ai"].indexOf(mode));
   gameModeSetting.querySelectorAll("button").forEach(button => {
     const selected = button.dataset.mode === mode;
+    button.classList.toggle("selected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+function updateAiDifficultyControl() {
+  aiDifficultySetting.style.setProperty("--selected-index", ["easy", "medium", "hard"].indexOf(preferences.aiDifficulty));
+  aiDifficultySetting.querySelectorAll("button").forEach(button => {
+    const selected = button.dataset.difficulty === preferences.aiDifficulty;
     button.classList.toggle("selected", selected);
     button.setAttribute("aria-checked", String(selected));
   });
@@ -327,14 +356,47 @@ function confirmReset() {
   } else if (pendingReset === "settings") {
     resetAllPreferences();
     callbacks.onResetSettings?.();
+    clearEditor();
     renderSettings();
   }
   closeResetConfirmation();
 }
 
+// The seen version is saved only once the player closes the changelog.
+function showChangelogIfUpdated() {
+  if (loadSeenVersion() === APP_VERSION) {
+    saveSeenVersion();
+    return;
+  }
+  openChangelog();
+}
+
+function openChangelog() {
+  const entry = CHANGELOG.find(item => item.version === APP_VERSION);
+  changelogVersion.textContent = `Version ${APP_VERSION}`;
+  changelogList.replaceChildren(...(entry?.changes || []).map(change => {
+    const item = document.createElement("li");
+    item.textContent = change;
+    return item;
+  }));
+  changelogModal.classList.add("is-open");
+  changelogButton.focus();
+}
+
+function closeChangelog() {
+  changelogModal.classList.remove("is-open");
+  saveSeenVersion();
+  if (panel.classList.contains("is-open")) appVersion.focus();
+  callbacks.onChangelogClose?.();
+}
+
 function initSettings(options) {
   callbacks = options;
   buildEditor();
+  appVersion.textContent = `v${APP_VERSION}`;
+  appVersion.addEventListener("click", openChangelog);
+  changelogButton.addEventListener("click", closeChangelog);
+  showChangelogIfUpdated();
   boardTypeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-board-mode]");
     if (!button || button.dataset.boardMode === getBoardMode()) return;
@@ -357,11 +419,19 @@ function initSettings(options) {
   });
   gameModeSetting.addEventListener("click", event => {
     const button = event.target.closest("button[data-mode]");
-    if (!button || (button.dataset.mode === "two-player" && getBoardMode() === "square")) return;
+    if (!button || button.hidden) return;
     preferences.timeTrialEnabled = button.dataset.mode === "timed";
     preferences.twoPlayerEnabled = button.dataset.mode === "two-player";
+    preferences.aiEnabled = button.dataset.mode === "ai";
     updateGameModeControl();
     timeTrialDurationRow.hidden = !preferences.timeTrialEnabled;
+    saveAndNotify();
+  });
+  aiDifficultySetting.addEventListener("click", event => {
+    const button = event.target.closest("button[data-difficulty]");
+    if (!button || aiDifficultyRow.hidden || button.dataset.difficulty === preferences.aiDifficulty) return;
+    preferences.aiDifficulty = button.dataset.difficulty;
+    updateAiDifficultyControl();
     saveAndNotify();
   });
   timeTrialDurationSetting.addEventListener("change", () => {
