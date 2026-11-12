@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-function setup(saved = new Map()) {
+function setup(saved = new Map(), host) {
   let now = 0;
   let nextId = 0;
   const timers = new Map();
@@ -12,6 +12,7 @@ function setup(saved = new Map()) {
   const windowEvents = {};
   function element() {
     const classes = new Set();
+    const attributes = new Map();
     return {
       hidden: false, disabled: false, textContent: "", dataset: {}, style: { setProperty() {} },
       classList: {
@@ -21,11 +22,16 @@ function setup(saved = new Map()) {
         toggle(name, enabled = !classes.has(name)) { enabled ? classes.add(name) : classes.delete(name); },
       },
       addEventListener(type, action) { this[type] = action; },
-      setAttribute() {}, focus() {}, replaceChildren() {},
+      setAttribute(name, value) { attributes.set(name, String(value)); },
+      hasAttribute: name => attributes.has(name),
+      getAttribute: name => attributes.get(name),
+      toggleAttribute(name, enabled = !attributes.has(name)) { enabled ? attributes.set(name, "") : attributes.delete(name); },
+      focus() {}, replaceChildren() {},
     };
   }
   const document = { hidden: false, documentElement: element(), addEventListener: (type, action) => events[type] = action };
   const window = {
+    GenericBlockGameHost: host,
     addEventListener(type, action) { windowEvents[type] = action; },
     removeEventListener(type) { delete windowEvents[type]; },
     matchMedia: () => ({ matches: false }),
@@ -38,6 +44,8 @@ function setup(saved = new Map()) {
     window, document, Date: class extends Date { static now() { return now; } },
     localStorage: { getItem: key => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, String(value)) },
   });
+  const head = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").split("</head>")[0];
+  for (const [, script] of head.matchAll(/<script>([\s\S]*?)<\/script>/g)) vm.runInContext(script, context);
   for (const file of ["config.js", "hex.js", "preferences.js", "shapes.js", "board.js", "scoring.js", "two-player.js", "ai.js", "storage.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", file), "utf8"), context);
   }
@@ -113,6 +121,44 @@ function setup(saved = new Map()) {
     startDrag, pointer, preview: () => preview,
     state: () => window.controller.state(), result: () => result, displayed: () => displayed,
     settings: () => settings, elapseWithoutTick: milliseconds => now += milliseconds };
+}
+
+test("native fullscreen starts without browser fullscreen controls or events", () => {
+  const app = setup(new Map(), { fullscreen: "native" });
+  let requests = 0;
+  app.document.fullscreenEnabled = true;
+  app.document.fullscreenElement = null;
+  app.document.documentElement.requestFullscreen = () => { requests += 1; };
+  assert.equal(app.document.documentElement.hasAttribute("data-native-fullscreen"), true);
+  app.boot();
+  assert.equal(app.elements.fullscreenButton.hidden, true);
+  assert.equal(app.elements.fullscreenButton.tabIndex, -1);
+  assert.equal(app.elements.fullscreenButton.click, undefined);
+  assert.equal(app.events.fullscreenchange, undefined);
+  assert.equal(requests, 0);
+});
+
+for (const host of [undefined, { fullscreen: "browser" }, { fullscreen: "unknown" }]) {
+  test(`browser fullscreen stays available with host ${JSON.stringify(host)}`, async () => {
+    const app = setup(new Map(), host);
+    let requests = 0;
+    let exits = 0;
+    app.document.fullscreenEnabled = true;
+    app.document.documentElement.requestFullscreen = async () => { requests += 1; };
+    app.document.exitFullscreen = async () => { exits += 1; };
+    app.boot();
+    assert.equal(app.document.documentElement.hasAttribute("data-native-fullscreen"), false);
+    assert.equal(app.elements.fullscreenButton.hidden, false);
+    assert.equal(requests, 0);
+    assert.equal(typeof app.events.fullscreenchange, "function");
+    await app.elements.fullscreenButton.click();
+    assert.equal(requests, 1);
+    app.document.fullscreenElement = app.document.documentElement;
+    app.events.fullscreenchange();
+    assert.equal(app.elements.fullscreenButton.getAttribute("aria-label"), "Exit fullscreen");
+    await app.elements.fullscreenButton.click();
+    assert.equal(exits, 1);
+  });
 }
 
 for (const mode of ["hex", "square"]) {

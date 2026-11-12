@@ -282,6 +282,22 @@ function openSettings() {
   renderSettings();
   panel.classList.add("is-open");
   panel.setAttribute("aria-hidden", "false");
+  updateSettingsViewport();
+}
+
+function keepFocusedSettingVisible() {
+  const field = document.activeElement;
+  if (panel.classList.contains("is-open") && panel.contains(field)
+    && field.matches("input, select, textarea")) {
+    field.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function updateSettingsViewport() {
+  const viewport = window.visualViewport;
+  panel.style.top = `${viewport?.offsetTop || 0}px`;
+  panel.style.height = `${viewport?.height || window.innerHeight}px`;
+  keepFocusedSettingVisible();
 }
 
 function closeSettings() {
@@ -393,6 +409,10 @@ function closeChangelog() {
 }
 
 function initSettings(options) {
+  panel.addEventListener("focusin", keepFocusedSettingVisible);
+  window.addEventListener("resize", updateSettingsViewport);
+  window.visualViewport?.addEventListener("resize", updateSettingsViewport);
+  window.visualViewport?.addEventListener("scroll", updateSettingsViewport);
   callbacks = options;
   buildEditor();
   appVersion.textContent = `v${APP_VERSION}`;

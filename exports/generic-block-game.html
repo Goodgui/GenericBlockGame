@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#0b1020">
   <title>GenericBlockGame</title>
+  <script>
+    document.documentElement.toggleAttribute("data-native-fullscreen", window.GenericBlockGameHost?.fullscreen === "native");
+  </script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTYgMjU2Ij4NCiAgPHRpdGxlPlNldmVuIGhleGFnb25zIHdpdGggdGhyZWUgYmx1ZSBjZWxscyBhdCB0aGUgbG93ZXIgbGVmdDwvdGl0bGU+DQogIDxkZWZzPg0KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmx1ZSIgeDE9IjAiIHkxPSIwIiB4Mj0iMCIgeTI9IjEiPg0KICAgICAgPHN0b3Agc3RvcC1jb2xvcj0iIzg4YThjZSIvPg0KICAgICAgPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjNTI3NDljIi8+DQogICAgPC9saW5lYXJHcmFkaWVudD4NCiAgICA8cG9seWdvbiBpZD0iaGV4IiBwb2ludHM9IjAsLTQ0IDM4LjEwNSwtMjIgMzguMTA1LDIyIDAsNDQgLTM4LjEwNSwyMiAtMzguMTA1LC0yMiIvPg0KICA8L2RlZnM+DQogIDxnIGZpbGw9IiMyMzI3MmUiIHN0cm9rZT0iI2E1YjJjNCIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iNjIiLz4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9IjE2Ni4xMDUiIHk9IjYyIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSI1MS43OSIgeT0iMTI4IiBmaWxsPSJ1cmwoI2JsdWUpIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxMjgiIHk9IjEyOCIvPg0KICAgIDx1c2UgaHJlZj0iI2hleCIgeD0iMjA0LjIxIiB5PSIxMjgiLz4NCiAgICA8dXNlIGhyZWY9IiNoZXgiIHg9Ijg5Ljg5NSIgeT0iMTk0IiBmaWxsPSJ1cmwoI2JsdWUpIi8+DQogICAgPHVzZSBocmVmPSIjaGV4IiB4PSIxNjYuMTA1IiB5PSIxOTQiIGZpbGw9InVybCgjYmx1ZSkiLz4NCiAgPC9nPg0KPC9zdmc+DQo=">
   <style>
 :root {
@@ -61,7 +64,12 @@ body {
   -webkit-user-select: none;
 }
 
-button { font: inherit; }
+button {
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+button:focus:not(:focus-visible) { outline: none; }
+button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 [hidden] { display: none !important; }
 
 .game-shell {
@@ -340,7 +348,6 @@ button { font: inherit; }
 #trayPreviousButton { left: -14px; }
 #trayNextButton { right: -14px; }
 .tray-arrow:disabled { opacity: .28; cursor: default; }
-.tray-arrow:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 2px; }
 
 .tray-slot {
   position: relative;
@@ -414,9 +421,11 @@ button { font: inherit; }
 .tray-actions { display: flex; align-items: center; justify-content: center; gap: 10px; }
 
 .settings-panel {
+  --settings-width: 580px;
   position: fixed;
   z-index: 120;
-  inset: 0;
+  inset: 0 0 auto;
+  height: 100dvh;
   display: none;
   justify-content: flex-start;
   background: rgba(4,5,7,.74);
@@ -427,25 +436,30 @@ button { font: inherit; }
 
 .settings-card {
   width: 100%;
-  height: 100dvh;
+  height: 100%;
   color: var(--text);
   background: #1b1e24;
   border-right: 0;
   box-shadow: none;
-  overflow: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scroll-padding-top: calc(max(60px, calc(52px + env(safe-area-inset-top))) + 12px);
+  scroll-padding-bottom: 12px;
 }
 
 .settings-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   height: max(60px, calc(52px + env(safe-area-inset-top)));
-  padding: env(safe-area-inset-top) 14px 0;
+  padding: env(safe-area-inset-top) max(14px, calc((100% - var(--settings-width)) / 2)) 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid #383e48;
+  background: #1b1e24;
 }
-
-.settings-header > *:first-child { margin-left: max(0px, calc((100% - var(--board-size)) / 2)); }
-.settings-header > *:last-child { margin-right: max(0px, calc((100% - var(--board-size)) / 2)); }
 
 .settings-header h2, .settings-section h3 { margin: 0; }
 .settings-close {
@@ -459,16 +473,12 @@ button { font: inherit; }
 }
 
 .settings-content {
-  height: calc(100dvh - max(60px, calc(52px + env(safe-area-inset-top))));
   width: 100%;
   padding: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .settings-content-inner {
-  width: min(calc(100% - 28px), var(--board-size));
+  width: min(calc(100% - 28px), var(--settings-width));
   margin: 0 auto;
   padding: 8px 0 max(80px, calc(30px + env(safe-area-inset-bottom)));
 }
@@ -804,6 +814,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .fullscreen-button.is-fullscreen .fullscreen-enter { display: none; }
 .fullscreen-button.is-fullscreen .fullscreen-exit { display: block; }
 .fullscreen-button.unsupported { display: none; }
+html[data-native-fullscreen] .fullscreen-button { display: none; }
 
 .drag-layer {
   position: fixed;
@@ -960,15 +971,15 @@ input[type="number"]::-webkit-outer-spin-button {
   .piece-setting-row .frequency-control { grid-column: 2 / 5; grid-row: 2; }
   .remove-piece-button { grid-column: 4; grid-row: 1; }
 
-  html:not(:fullscreen):not(:-webkit-full-screen) .game-shell {
+  html:not([data-native-fullscreen]):not(:fullscreen):not(:-webkit-full-screen) .game-shell {
     padding-top: max(9px, env(safe-area-inset-top));
   }
 
-  html:not(:fullscreen):not(:-webkit-full-screen) .topbar {
+  html:not([data-native-fullscreen]):not(:fullscreen):not(:-webkit-full-screen) .topbar {
     min-height: 48px;
   }
 
-  html:not(:fullscreen):not(:-webkit-full-screen) .score-panel {
+  html:not([data-native-fullscreen]):not(:fullscreen):not(:-webkit-full-screen) .score-panel {
     min-height: 60px;
     margin-top: -7px;
     margin-bottom: 7px;
@@ -3083,6 +3094,22 @@ function openSettings() {
   renderSettings();
   panel.classList.add("is-open");
   panel.setAttribute("aria-hidden", "false");
+  updateSettingsViewport();
+}
+
+function keepFocusedSettingVisible() {
+  const field = document.activeElement;
+  if (panel.classList.contains("is-open") && panel.contains(field)
+    && field.matches("input, select, textarea")) {
+    field.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function updateSettingsViewport() {
+  const viewport = window.visualViewport;
+  panel.style.top = `${viewport?.offsetTop || 0}px`;
+  panel.style.height = `${viewport?.height || window.innerHeight}px`;
+  keepFocusedSettingVisible();
 }
 
 function closeSettings() {
@@ -3194,6 +3221,10 @@ function closeChangelog() {
 }
 
 function initSettings(options) {
+  panel.addEventListener("focusin", keepFocusedSettingVisible);
+  window.addEventListener("resize", updateSettingsViewport);
+  window.visualViewport?.addEventListener("resize", updateSettingsViewport);
+  window.visualViewport?.addEventListener("scroll", updateSettingsViewport);
   callbacks = options;
   buildEditor();
   appVersion.textContent = `v${APP_VERSION}`;
@@ -3594,7 +3625,7 @@ function prepareTray() {
     rotation: Math.floor(Math.random() * rotationCount()),
     used: false,
   }));
-  ensureTrayHasPlaceablePiece();
+  if (traySize > 1) ensureTrayHasPlaceablePiece();
   state.history = [];
   state.restoredTrayItemUid = null;
 }
@@ -4191,8 +4222,16 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
 });
 elements.modalUndoButton.addEventListener("click", undo);
-elements.fullscreenButton.addEventListener("click", toggleFullscreen);
-document.addEventListener("fullscreenchange", updateFullscreenButton);
+if (document.documentElement.hasAttribute("data-native-fullscreen")) {
+  elements.fullscreenButton.hidden = true;
+  elements.fullscreenButton.tabIndex = -1;
+} else {
+  elements.fullscreenButton.addEventListener("click", toggleFullscreen);
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) {
+    elements.fullscreenButton.classList.add("unsupported");
+  }
+}
 window.addEventListener("blur", cancelDrag);
 window.addEventListener("resize", () => {
   cleanupDrag();
@@ -4207,10 +4246,6 @@ document.addEventListener("visibilitychange", () => {
 document.addEventListener("contextmenu", event => event.preventDefault());
 document.addEventListener("selectstart", event => event.preventDefault());
 document.addEventListener("dragstart", event => event.preventDefault());
-
-if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) {
-  elements.fullscreenButton.classList.add("unsupported");
-}
 
 initSettings({
   onChange: restartForSettingsChange,

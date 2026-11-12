@@ -280,7 +280,7 @@ function prepareTray() {
     rotation: Math.floor(Math.random() * rotationCount()),
     used: false,
   }));
-  ensureTrayHasPlaceablePiece();
+  if (traySize > 1) ensureTrayHasPlaceablePiece();
   state.history = [];
   state.restoredTrayItemUid = null;
 }
@@ -877,8 +877,16 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape" && !elements.modalCancelButton.hidden) hideModal();
 });
 elements.modalUndoButton.addEventListener("click", undo);
-elements.fullscreenButton.addEventListener("click", toggleFullscreen);
-document.addEventListener("fullscreenchange", updateFullscreenButton);
+if (document.documentElement.hasAttribute("data-native-fullscreen")) {
+  elements.fullscreenButton.hidden = true;
+  elements.fullscreenButton.tabIndex = -1;
+} else {
+  elements.fullscreenButton.addEventListener("click", toggleFullscreen);
+  document.addEventListener("fullscreenchange", updateFullscreenButton);
+  if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) {
+    elements.fullscreenButton.classList.add("unsupported");
+  }
+}
 window.addEventListener("blur", cancelDrag);
 window.addEventListener("resize", () => {
   cleanupDrag();
@@ -893,10 +901,6 @@ document.addEventListener("visibilitychange", () => {
 document.addEventListener("contextmenu", event => event.preventDefault());
 document.addEventListener("selectstart", event => event.preventDefault());
 document.addEventListener("dragstart", event => event.preventDefault());
-
-if (!document.fullscreenEnabled || !document.documentElement.requestFullscreen) {
-  elements.fullscreenButton.classList.add("unsupported");
-}
 
 initSettings({
   onChange: restartForSettingsChange,
